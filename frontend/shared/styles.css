@@ -533,6 +533,12 @@ button, input { font: inherit; }
   letter-spacing: 0.6px;
   text-transform: uppercase;
 }
+.required-star {
+  color: var(--red);
+}
+.field {
+  width: 100%;
+}
 .input {
   min-height: 48px;
   padding: 0 16px;
@@ -570,7 +576,7 @@ textarea.input::placeholder {
 .input textarea,
 textarea.input {
   resize: vertical;
-  min-height: 96px;
+  min-height: 168px;
   padding-top: 14px;
   align-items: flex-start;
 }
@@ -600,7 +606,7 @@ select.input {
   color: #6b7280;
 }
 .textarea {
-  min-height: 96px;
+  min-height: 168px;
   align-items: flex-start;
   padding-top: 14px;
 }
@@ -844,6 +850,35 @@ select.input {
   align-items: center;
   font-size: 14px;
   font-weight: 600;
+}
+.status-options {
+  display: flex;
+  gap: 24px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.status-option {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--ink);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.status-option input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+.status-option .radio {
+  margin-right: 0;
+}
+.status-option input:checked + .radio {
+  border: 5px solid var(--teal);
+}
+.status-option input:not(:checked) + .radio {
+  border: 1px solid #bdc9c8;
 }
 .radio {
   width: 16px;

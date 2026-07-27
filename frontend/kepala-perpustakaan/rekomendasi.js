@@ -443,7 +443,7 @@ function renderDetailModal() {
   const available = Number(book.stock_available || 0);
   const totalStock = Number(book.stock_total || 0);
   const borrowed = Number(book.borrowed_quantity || 0);
-  return `<div class="modal-layer" data-reco-modal-close>
+  return `<div class="modal-layer">
     <div class="modal modal-lg">
       <div class="modal-head">
         <h3>Detail Rekomendasi Buku</h3>
@@ -670,7 +670,7 @@ document.addEventListener("click", (event) => {
   }
 
   const modalClose = event.target.closest("[data-reco-modal-close-btn]");
-  if (modalClose || event.target.matches("[data-reco-modal-close]")) {
+  if (modalClose) {
     state.detailBook = null;
     renderPage();
   }

@@ -1375,3 +1375,134 @@ Hasil:
 - kartu KPI, ringkasan analisis, dan estimasi anggaran dihitung dari data database yang sedang tampil
 - modal detail buku menampilkan informasi stok dan rekomendasi langsung dari data yang dimuat
 - pengecekan sintaks `node --check` untuk `frontend/kepala-perpustakaan/rekomendasi.js` berhasil
+
+## 92) Prompt sembilan puluh dua: modal kategori hanya boleh ditutup lewat tombol X
+
+User meminta:
+
+- di `frontend/admin/kategori.html`, form tambah kategori tidak boleh keluar kecuali lewat tombol `x` di kanan atas
+
+Hasil:
+
+- `frontend/admin/kategori.js` diubah supaya modal kategori hanya ditutup oleh tombol `×`
+- penutupan lewat klik backdrop dihapus
+- penutupan lewat tombol `BATAL` dihapus
+- penutupan lewat tombol `Escape` dihapus
+
+## 93) Prompt sembilan puluh tiga: deskripsi dibuat lebih luas dan status jadi radio
+
+User meminta:
+
+- ukuran input `DESKRIPSI SINGKAT` diperluas
+- `STATUS KATEGORI` dibuat seperti pilihan radio pada referensi
+
+Hasil:
+
+- field deskripsi di `frontend/admin/kategori.js` dibuat lebih lebar dan lebih tinggi
+- status kategori diubah menjadi radio `Aktif` dan `Nonaktif`
+- `frontend/shared/styles.css` ditambah styling untuk radio status agar tampil sejajar dengan referensi
+
+## 94) Prompt sembilan puluh empat: textarea masih kurang tinggi
+
+User meminta:
+
+- textarea deskripsi masih terasa belum luas ke bawah
+
+Hasil:
+
+- `rows` textarea deskripsi kategori dinaikkan lagi
+- `min-height` textarea umum dan kelas `.textarea` dinaikkan agar area isi lebih panjang ke bawah
+
+## 95) Prompt sembilan puluh lima: warna stok pada katalog buku aktif
+
+User meminta:
+
+- kolom stok di `frontend/admin/buku.html` diberi warna berdasarkan rasio stok
+
+Hasil:
+
+- `frontend/admin/buku-view.js` sekarang merender stok sebagai badge berwarna `tersedia/total`
+- stok penuh tampil hijau
+- stok setengah sampai di atas seperempat tampil kuning
+- stok seperempat ke bawah tampil merah
+
+## 96) Prompt sembilan puluh enam: modal tambah dan edit buku dikunci ke tombol X
+
+User meminta:
+
+- form tambah buku dan edit buku tidak boleh ditutup kecuali lewat tombol `x` di kanan atas
+
+Hasil:
+
+- `frontend/admin/buku-view.js` diubah supaya modal buku hanya bisa ditutup lewat tombol `×`
+- penutupan lewat klik backdrop dihapus
+- penutupan lewat tombol `BATAL` dihapus
+- penutupan lewat tombol `Escape` dihapus
+
+## 97) Prompt sembilan puluh tujuh: tanda wajib diberi warna merah
+
+User meminta:
+
+- semua input yang punya tanda `*` harus menampilkan bintang merah
+
+Hasil:
+
+- `frontend/shared/components.js` sekarang memformat label agar `*` tampil merah
+- `frontend/shared/styles.css` menambah kelas `.required-star`
+- label wajib manual di form buku, sirkulasi, anggota, dan tambah pengguna ikut disamakan
+
+## 98) Prompt sembilan puluh delapan: halaman buku blank karena export module tidak terbaca
+
+User melaporkan:
+
+- `frontend/admin/buku.html` blank dan console menampilkan error bahwa `renderLabelHtml` tidak diekspor dari `components.js`
+
+Hasil:
+
+- import `frontend/admin/buku-view.js` diarahkan ke `components.js` dengan query cache-buster
+- browser dipaksa memuat modul terbaru agar export `renderLabelHtml` terbaca
+
+## 99) Prompt sembilan puluh sembilan: kategori masih memakai modul lama
+
+User menunjukkan:
+
+- `frontend/admin/kategori.html` masih menampilkan label wajib dengan `*` hitam
+
+Hasil:
+
+- import `frontend/admin/kategori.js` diarahkan ke `components.js` dengan query cache-buster
+- halaman kategori dipaksa memuat modul shared terbaru supaya label wajib tampil merah
+
+## 100) Prompt seratus: cache-buster diseragamkan di halaman lain
+
+User meminta:
+
+- error label wajib yang masih muncul di halaman anggota dan form lain diperiksa juga
+
+Hasil:
+
+- import shared components diseragamkan ke `components.js?v=20260727` pada halaman anggota, buku, sirkulasi, tambah anggota, dan tambah pengguna
+- ini untuk mencegah browser memuat modul lama saat berpindah antar halaman yang sudah diubah
+
+## 101) Prompt seratus satu: semua form diseragamkan ke tombol X
+
+User meminta:
+
+- semua halaman yang memiliki form disamakan perilakunya, jadi form hanya bisa ditutup lewat tombol `×`
+
+Hasil:
+
+- modal form kategori, anggota, buku, dan sirkulasi sekarang hanya bisa ditutup lewat tombol `×`
+- modal detail di sirkulasi, dashboard kepala, dan rekomendasi juga disamakan agar tidak bisa ditutup lewat backdrop
+- halaman form mandiri seperti tambah anggota, tambah pengguna, tambah peminjaman, dan pengaturan admin diberi tombol `×` di kanan atas
+
+## 102) Prompt seratus dua: bar tren laporan tidak sesuai skala data
+
+User meminta:
+
+- bar peminjaman di chart laporan terlihat lebih tinggi padahal pengadaan lebih banyak
+
+Hasil:
+
+- `frontend/admin/laporan.js` diubah supaya chart tren memakai satu skala tinggi gabungan untuk `peminjaman` dan `pengadaan`
+- basis tinggi terpisah yang sebelumnya membuat bar tidak sebanding sudah dihapus

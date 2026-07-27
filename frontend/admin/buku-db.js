@@ -1,5 +1,5 @@
 import { apiFetch } from "../shared/api.js";
-import { escapeHtml, field, renderDocument, stat } from "../shared/components.js";
+import { escapeHtml, field, renderDocument, renderLabelHtml, stat } from "../shared/components.js?v=20260727";
 import { renderAdminShell } from "../shared/layout-admin.js";
 
 const state = {
@@ -164,7 +164,7 @@ function buildBookModal(book = null) {
         <p style="margin:0;color:#6e7979;font-size:12px;line-height:16px">Masukkan informasi katalog lengkap sesuai buku fisik</p>
         <div class="login-alert" data-book-alert hidden></div>
         <div class="field full">
-          <label>KATEGORI BUKU *</label>
+          <label>${renderLabelHtml("KATEGORI BUKU *")}</label>
           <select class="input" name="category_id" required>
             ${buildCategoryOptions(selectedCategory)}
           </select>
@@ -192,7 +192,6 @@ function buildBookModal(book = null) {
         </div>
         ${field("DESKRIPSI", book?.description || "", { name: "description", textarea: true, placeholder: "Tuliskan deskripsi singkat buku..." })}
         <div class="form-actions">
-          <button class="btn" type="button" data-modal-cancel>BATAL</button>
           <button class="btn primary" type="submit">${isEdit ? "SIMPAN PERUBAHAN" : "SIMPAN BUKU"}</button>
         </div>
       </form>
@@ -259,24 +258,13 @@ function openBookModal(book = null) {
   const layer = document.querySelector(".modal-layer");
   const form = layer?.querySelector("[data-book-form]");
   const closeButton = layer?.querySelector(".modal-close");
-  const cancelButton = layer?.querySelector("[data-modal-cancel]");
   const alertBox = layer?.querySelector("[data-book-alert]");
 
   const closeModal = () => {
-    document.removeEventListener("keydown", onKeyDown);
     layer?.remove();
   };
 
-  const onKeyDown = (event) => {
-    if (event.key === "Escape") closeModal();
-  };
-
-  document.addEventListener("keydown", onKeyDown);
-  layer?.addEventListener("click", (event) => {
-    if (event.target === layer) closeModal();
-  });
   closeButton?.addEventListener("click", closeModal);
-  cancelButton?.addEventListener("click", closeModal);
 
   form?.addEventListener("submit", async (event) => {
     event.preventDefault();

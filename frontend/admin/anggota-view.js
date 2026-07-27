@@ -1,5 +1,5 @@
 import { apiFetch } from "../shared/api.js";
-import { escapeHtml, field, renderDocument, stat } from "../shared/components.js";
+import { escapeHtml, field, renderDocument, renderLabelHtml, stat } from "../shared/components.js?v=20260727";
 import { renderAdminShell } from "../shared/layout-admin.js";
 
 const state = {
@@ -180,7 +180,7 @@ function buildMemberQuery() {
 
 function selectField(label, name, value, options, opts = {}) {
   return `<div class="field ${opts.full ? "full" : ""}">
-    <label>${escapeHtml(label)}</label>
+    <label>${renderLabelHtml(label)}</label>
     <select class="input" name="${escapeHtml(name)}" ${opts.required ? "required" : ""}>
       ${options
         .map((option) => `<option value="${escapeHtml(option.value)}"${option.value === value ? " selected" : ""}>${escapeHtml(option.label)}</option>`)
@@ -231,7 +231,6 @@ function memberModal(member = null, mode = member ? "edit" : "create") {
         ${field("ALAMAT LENGKAP", member?.address || "", { name: "address", textarea: true, full: true, placeholder: "Masukkan alamat domisili saat ini...", rows: 4 })}
         ${statusField}
         <div class="form-actions">
-          <button class="btn" type="button" data-modal-cancel>BATAL</button>
           <button class="btn primary" type="submit">${submitLabel}</button>
         </div>
       </form>
@@ -311,24 +310,13 @@ function openMemberModal(member = null) {
   const layer = document.querySelector(".modal-layer");
   const form = layer?.querySelector("[data-member-form]");
   const closeButton = layer?.querySelector(".modal-close");
-  const cancelButton = layer?.querySelector("[data-modal-cancel]");
   const alertBox = layer?.querySelector("[data-member-alert]");
 
   const closeModal = () => {
-    document.removeEventListener("keydown", onKeyDown);
     layer?.remove();
   };
 
-  const onKeyDown = (event) => {
-    if (event.key === "Escape") closeModal();
-  };
-
-  document.addEventListener("keydown", onKeyDown);
-  layer?.addEventListener("click", (event) => {
-    if (event.target === layer) closeModal();
-  });
   closeButton?.addEventListener("click", closeModal);
-  cancelButton?.addEventListener("click", closeModal);
 
   form?.addEventListener("submit", async (event) => {
     event.preventDefault();

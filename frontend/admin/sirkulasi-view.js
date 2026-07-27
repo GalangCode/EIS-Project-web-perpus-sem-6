@@ -1,5 +1,5 @@
 import { apiFetch } from "../shared/api.js";
-import { escapeHtml, renderDocument, stat } from "../shared/components.js";
+import { escapeHtml, renderDocument, renderLabelHtml, stat } from "../shared/components.js?v=20260727";
 import { renderAdminShell } from "../shared/layout-admin.js";
 
 const state = {
@@ -233,7 +233,6 @@ function buildLoanDetail(item) {
           <div class="input" style="min-height:auto;height:auto;display:block;line-height:22px">${escapeHtml(item.notes || "-")}</div>
         </div>
         <div class="form-actions">
-          <button class="btn primary" type="button" data-modal-close>TUTUP</button>
         </div>
       </div>
     </div>
@@ -256,11 +255,11 @@ function renderLoanModal({ title, submitLabel, mode, item = null }) {
         <div class="login-alert" data-loan-alert hidden></div>
         <div class="split" style="gap:16px">
           <div class="field">
-            <label>ANGGOTA *</label>
+            <label>${renderLabelHtml("ANGGOTA *")}</label>
             <select class="input" name="member_id" required>${buildMemberSelect(item?.member_id || 0)}</select>
           </div>
           <div class="field">
-            <label>STATUS *</label>
+            <label>${renderLabelHtml("STATUS *")}</label>
             <select class="input" name="status" required>
               <option value="dipinjam"${item?.status === "dipinjam" || mode === "create" ? " selected" : ""}>Dipinjam</option>
               <option value="terlambat"${item?.status === "terlambat" ? " selected" : ""}>Terlambat</option>
@@ -269,16 +268,16 @@ function renderLoanModal({ title, submitLabel, mode, item = null }) {
         </div>
         <div class="split" style="gap:16px">
           <div class="field">
-            <label>TANGGAL PINJAM *</label>
+            <label>${renderLabelHtml("TANGGAL PINJAM *")}</label>
             <input class="input" type="date" name="loan_date" value="${loanDate}" required />
           </div>
           <div class="field">
-            <label>TANGGAL KEMBALI *</label>
+            <label>${renderLabelHtml("TANGGAL KEMBALI *")}</label>
             <input class="input" type="date" name="due_date" value="${dueDate}" required />
           </div>
         </div>
         <div class="field full">
-          <label>BUKU *</label>
+          <label>${renderLabelHtml("BUKU *")}</label>
           ${buildBookChecklist(selectedBookIds)}
         </div>
         <div class="field full">
@@ -286,7 +285,6 @@ function renderLoanModal({ title, submitLabel, mode, item = null }) {
           <textarea class="input textarea" name="notes" rows="4" placeholder="Tambahkan catatan jika perlu">${escapeHtml(item?.notes || "")}</textarea>
         </div>
         <div class="form-actions">
-          <button class="btn" type="button" data-modal-cancel>BATAL</button>
           <button class="btn primary" type="submit">${escapeHtml(submitLabel)}</button>
         </div>
       </form>
@@ -364,23 +362,12 @@ function openLoanDetailModal(item) {
   document.body.insertAdjacentHTML("beforeend", buildLoanDetail(item));
   const layer = document.querySelector(".modal-layer");
   const closeButton = layer?.querySelector(".modal-close");
-  const closeAction = layer?.querySelector("[data-modal-close]");
 
   const closeModal = () => {
-    document.removeEventListener("keydown", onKeyDown);
     layer?.remove();
   };
 
-  const onKeyDown = (event) => {
-    if (event.key === "Escape") closeModal();
-  };
-
-  document.addEventListener("keydown", onKeyDown);
-  layer?.addEventListener("click", (event) => {
-    if (event.target === layer) closeModal();
-  });
   closeButton?.addEventListener("click", closeModal);
-  closeAction?.addEventListener("click", closeModal);
 }
 
 async function openCreateLoanModal() {
@@ -419,25 +406,14 @@ function openLoanModalDialog({ mode, title, submitLabel, item = null }) {
   const layer = document.querySelector(".modal-layer");
   const form = layer?.querySelector("[data-loan-form]");
   const closeButton = layer?.querySelector(".modal-close");
-  const cancelButton = layer?.querySelector("[data-modal-cancel]");
   const alertBox = layer?.querySelector("[data-loan-alert]");
   let isSubmitting = false;
 
   const closeModal = () => {
-    document.removeEventListener("keydown", onKeyDown);
     layer?.remove();
   };
 
-  const onKeyDown = (event) => {
-    if (event.key === "Escape") closeModal();
-  };
-
-  document.addEventListener("keydown", onKeyDown);
-  layer?.addEventListener("click", (event) => {
-    if (event.target === layer) closeModal();
-  });
   closeButton?.addEventListener("click", closeModal);
-  cancelButton?.addEventListener("click", closeModal);
 
   form?.addEventListener("submit", async (event) => {
     event.preventDefault();

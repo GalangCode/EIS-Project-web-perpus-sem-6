@@ -29,7 +29,7 @@ function addBookModal() {
         </div>
         ${field("Jumlah Stok", "", { placeholder: "1" })}
       </div>
-      <div class="modal-foot"><button class="btn">Batal</button><button class="btn primary">Simpan Data</button></div>
+      <div class="modal-foot"><button class="btn primary">Simpan Data</button></div>
     </div>
   </div>`;
 }
@@ -67,21 +67,10 @@ if (openButton) {
 
     const closeModal = () => {
       document.querySelector(".modal-layer")?.remove();
-      document.removeEventListener("keydown", onKeyDown);
     };
-
-    const onKeyDown = (event) => {
-      if (event.key === "Escape") closeModal();
-    };
-
-    document.addEventListener("keydown", onKeyDown);
 
     const layer = document.querySelector(".modal-layer");
     const closeButton = layer?.querySelector(".modal-close");
-
-    layer?.addEventListener("click", (event) => {
-      if (event.target === layer) closeModal();
-    });
 
     closeButton?.addEventListener("click", closeModal);
   });

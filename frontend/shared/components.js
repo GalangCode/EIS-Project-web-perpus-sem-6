@@ -60,6 +60,10 @@ function renderStatIcon(icon, tone) {
   return escapeHtml(icon);
 }
 
+export function renderLabelHtml(label) {
+  return escapeHtml(label).replaceAll("*", '<span class="required-star">*</span>');
+}
+
 export function mount(html, title = "EIS Balangan") {
   document.title = `${title} - EIS Balangan`;
   document.getElementById("app").innerHTML = html;
@@ -143,7 +147,7 @@ export function field(label, value = "", opts = {}) {
         ? `<select class="${className}"${name}>${options}</select>`
         : `<input class="${className}"${name}${type} value="${escapeHtml(value)}" placeholder="${placeholder}" />`;
   return `<div class="field ${opts.full ? "full" : ""}">
-    <label>${escapeHtml(label)}</label>
+    <label>${renderLabelHtml(label)}</label>
     ${control}
   </div>`;
 }

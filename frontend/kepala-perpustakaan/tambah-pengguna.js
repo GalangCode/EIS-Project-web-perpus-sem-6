@@ -1,5 +1,5 @@
 import { apiFetch } from "../shared/api.js";
-import { escapeHtml, field, renderDocument } from "../shared/components.js";
+import { escapeHtml, field, renderDocument, renderLabelHtml } from "../shared/components.js?v=20260727";
 import { renderKepalaShell } from "../shared/layout-kepala.js";
 
 const roleOptions = [
@@ -14,7 +14,7 @@ const statusOptions = [
 
 function selectField(label, name, value, options, opts = {}) {
   return `<div class="field ${opts.full ? "full" : ""}">
-    <label>${escapeHtml(label)}</label>
+    <label>${renderLabelHtml(label)}</label>
     <select class="input" name="${escapeHtml(name)}" ${opts.required ? "required" : ""}>
       ${options
         .map((option) => `<option value="${escapeHtml(option.value)}"${option.value === value ? " selected" : ""}>${escapeHtml(option.label)}</option>`)
@@ -31,8 +31,13 @@ const content = `<div class="hero-row" style="margin-bottom:18px">
 </div>
 <div class="split" style="grid-template-columns:1.2fr .8fr;align-items:start">
   <section class="panel" style="padding:24px">
-    <h2 class="panel-title">Informasi Akun Pengguna</h2>
-    <p class="page-copy" style="margin-top:6px;font-size:13px">Lengkapi data di bawah ini untuk mendaftarkan administrator atau kepala perpustakaan baru ke dalam sistem.</p>
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px">
+      <div>
+        <h2 class="panel-title">Informasi Akun Pengguna</h2>
+        <p class="page-copy" style="margin-top:6px;font-size:13px">Lengkapi data di bawah ini untuk mendaftarkan administrator atau kepala perpustakaan baru ke dalam sistem.</p>
+      </div>
+      <a class="modal-close" href="pengguna.html" aria-label="Kembali ke daftar pengguna" style="display:inline-flex;align-items:center;justify-content:center;text-decoration:none">×</a>
+    </div>
     <form class="form-grid" style="margin-top:20px" data-user-form>
       ${field("USERNAME *", "", { name: "username", placeholder: "budi.santoso" })}
       ${field("NAMA LENGKAP *", "", { name: "full_name", placeholder: "Contoh: Budi Santoso" })}
@@ -45,7 +50,6 @@ const content = `<div class="hero-row" style="margin-bottom:18px">
       ${field("KATA SANDI *", "", { name: "password", type: "password", placeholder: "Minimal 8 karakter" })}
       ${field("KONFIRMASI KATA SANDI *", "", { name: "password_confirmation", type: "password", placeholder: "Ulangi kata sandi" })}
       <div class="form-actions full">
-        <a class="btn" href="pengguna.html">Batal</a>
         <button class="btn primary" type="submit" data-user-submit>Simpan Pengguna</button>
       </div>
     </form>

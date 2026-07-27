@@ -1,5 +1,5 @@
 import { apiFetch } from "../shared/api.js";
-import { escapeHtml, field, renderDocument } from "../shared/components.js";
+import { escapeHtml, field, renderDocument, renderLabelHtml } from "../shared/components.js?v=20260727";
 import { renderAdminShell } from "../shared/layout-admin.js";
 
 const params = new URLSearchParams(window.location.search);
@@ -19,7 +19,7 @@ const genderOptions = [
 
 function selectField(label, name, value, options, opts = {}) {
   return `<div class="field ${opts.full ? "full" : ""}">
-    <label>${escapeHtml(label)}</label>
+    <label>${renderLabelHtml(label)}</label>
     <select class="input" name="${escapeHtml(name)}" ${opts.required ? "required" : ""}>
       ${options
         .map((option) => `<option value="${escapeHtml(option.value)}"${option.value === value ? " selected" : ""}>${escapeHtml(option.label)}</option>`)
@@ -51,11 +51,12 @@ function renderPage() {
   </div>
   <div class="split">
     <section class="panel">
-      <div class="panel-toolbar" style="min-height:auto;padding-bottom:0">
+      <div class="panel-toolbar" style="min-height:auto;padding-bottom:0;justify-content:space-between;gap:16px">
         <div>
           <h2 class="panel-title">Informasi Anggota</h2>
           <p class="page-copy" style="margin-top:6px;font-size:14px">${infoText}</p>
         </div>
+        <a class="modal-close" href="anggota.html" aria-label="Kembali ke daftar anggota" style="display:inline-flex;align-items:center;justify-content:center;text-decoration:none">×</a>
       </div>
       <div class="form-shell slim" style="border:0;box-shadow:none;padding:20px 0 0">
         <form class="form-grid" data-member-form>
@@ -83,7 +84,6 @@ function renderPage() {
             { value: "nonaktif", label: "Nonaktif" },
           ], { full: true })}
           <div class="form-actions">
-            <a class="btn" href="anggota.html">Batal</a>
             <button class="btn primary" type="submit">${submitLabel}</button>
           </div>
         </form>

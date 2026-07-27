@@ -33,7 +33,7 @@ function categoryModal() {
 */
 
 import { apiFetch } from "../shared/api.js";
-import { escapeHtml, field, renderDocument, stat } from "../shared/components.js";
+import { escapeHtml, field, renderDocument, stat } from "../shared/components.js?v=20260727";
 import { renderAdminShell } from "../shared/layout-admin.js";
 
 const state = {
@@ -208,6 +208,25 @@ function buildFilterLayer() {
   </div>`;
 }
 
+function statusRadioGroup(value = "aktif") {
+  const current = String(value || "aktif").toLowerCase() === "nonaktif" ? "nonaktif" : "aktif";
+  return `<div class="field full">
+    <label>STATUS KATEGORI</label>
+    <div class="status-options">
+      <label class="status-option">
+        <input type="radio" name="status" value="aktif" ${current === "aktif" ? "checked" : ""} />
+        <span class="radio" aria-hidden="true"></span>
+        <span>Aktif</span>
+      </label>
+      <label class="status-option">
+        <input type="radio" name="status" value="nonaktif" ${current === "nonaktif" ? "checked" : ""} />
+        <span class="radio" aria-hidden="true"></span>
+        <span>Nonaktif</span>
+      </label>
+    </div>
+  </div>`;
+}
+
 function openModal(category = null) {
   if (document.querySelector(".modal-layer")) return;
   const isEdit = Boolean(category);
@@ -228,10 +247,9 @@ function openModal(category = null) {
           </div>
           <div class="login-alert" data-category-alert hidden></div>
           ${field("NAMA KATEGORI *", category?.name || "", { name: "name", placeholder: "Masukkan nama kategori (mis: Fiksi)" })}
-          ${field("DESKRIPSI SINGKAT", category?.description || "", { name: "description", textarea: true, placeholder: "Tuliskan deskripsi singkat mengenai kategori ini..." })}
-          ${field("STATUS KATEGORI", category?.status || "aktif", { name: "status", tag: "select", options: ["aktif", "nonaktif"] })}
+          ${field("DESKRIPSI SINGKAT", category?.description || "", { name: "description", textarea: true, full: true, rows: 8, placeholder: "Tuliskan deskripsi singkat mengenai kategori ini..." })}
+          ${statusRadioGroup(category?.status || "aktif")}
           <div class="form-actions">
-            <button class="btn" type="button" data-modal-cancel>BATAL</button>
             <button class="btn primary" type="submit">${isEdit ? "SIMPAN PERUBAHAN" : "SIMPAN KATEGORI"}</button>
           </div>
         </form>
@@ -242,24 +260,13 @@ function openModal(category = null) {
   const layer = document.querySelector(".modal-layer");
   const form = layer?.querySelector("[data-category-form]");
   const closeButton = layer?.querySelector(".modal-close");
-  const cancelButton = layer?.querySelector("[data-modal-cancel]");
   const alertBox = layer?.querySelector("[data-category-alert]");
 
   const closeModal = () => {
-    document.removeEventListener("keydown", onKeyDown);
     layer?.remove();
   };
 
-  const onKeyDown = (event) => {
-    if (event.key === "Escape") closeModal();
-  };
-
-  document.addEventListener("keydown", onKeyDown);
-  layer?.addEventListener("click", (event) => {
-    if (event.target === layer) closeModal();
-  });
   closeButton?.addEventListener("click", closeModal);
-  cancelButton?.addEventListener("click", closeModal);
 
   form?.addEventListener("submit", async (event) => {
     event.preventDefault();

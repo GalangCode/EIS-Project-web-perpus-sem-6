@@ -222,22 +222,19 @@ function openBookDetailModal(book) {
               <div class="input">${escapeHtml(formatDate(book.last_borrowed_at))}</div>
             </div>
           </div>
-          <div class="form-actions">
-            <button class="btn" type="button" data-all-detail-download>UNDUH CSV</button>
-            <button class="btn primary" type="button" data-all-modal-close>TUTUP</button>
-          </div>
+        <div class="form-actions">
+          <button class="btn" type="button" data-all-detail-download>UNDUH CSV</button>
         </div>
       </div>
-    </div>`;
+    </div>
+  </div>`;
 
   document.body.insertAdjacentHTML("beforeend", modal);
   const layer = document.querySelector("[data-all-modal-layer]");
+  const closeButton = layer?.querySelector(".modal-close");
   const closeModal = () => layer?.remove();
 
-  layer?.querySelectorAll("[data-all-modal-close]").forEach((button) => button.addEventListener("click", closeModal));
-  layer?.addEventListener("click", (event) => {
-    if (event.target === layer) closeModal();
-  });
+  closeButton?.addEventListener("click", closeModal);
   layer?.querySelector("[data-all-detail-download]")?.addEventListener("click", () => {
     exportBooks([book], String(book.code || "detail"));
   });

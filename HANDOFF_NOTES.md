@@ -204,6 +204,186 @@ Lalu buka:
 
 Semua file JS yang ada di `frontend/` sudah lolos `node --check` terakhir kali dicek.
 
+## Modal Kategori Terkunci Ke Tombol X
+
+Status:
+
+- modal tambah/edit kategori di `frontend/admin/kategori.js` sekarang hanya bisa ditutup lewat tombol `×`
+
+Perubahan:
+
+- tombol `BATAL` dihapus dari form kategori
+- penutupan lewat klik backdrop dimatikan
+- penutupan lewat `Escape` dimatikan
+
+Catatan:
+
+- setelah simpan kategori, modal tetap ditutup oleh alur submit yang memang sukses menyelesaikan aksi
+- perubahan ini menjaga agar pengguna tidak keluar form tanpa sengaja saat input sedang diisi
+
+## Deskripsi Dan Status Kategori Diperluas
+
+Status:
+
+- modal kategori sekarang memakai textarea deskripsi yang lebih lebar dan opsi status radio seperti referensi
+
+Perubahan:
+
+- field `DESKRIPSI SINGKAT` dibuat `full` dan diberi tinggi baris lebih besar
+- `STATUS KATEGORI` diubah dari select menjadi radio `Aktif` dan `Nonaktif`
+- styling tambahan ditambahkan agar radio tampil sejajar dan konsisten dengan referensi
+
+Catatan:
+
+- nilai status tetap terbaca oleh `FormData` karena radio memakai `name="status"`
+- layout baru ini masih mengikuti struktur modal yang sudah ada tanpa mengubah alur simpan
+
+## Tinggi Textarea Diperbesar Lagi
+
+Status:
+
+- textarea `DESKRIPSI SINGKAT` dinaikkan lagi agar lebih panjang ke bawah
+
+Perubahan:
+
+- `rows` field deskripsi kategori dinaikkan
+- `min-height` textarea umum dan kelas `.textarea` dinaikkan supaya area input terlihat lebih lapang
+
+Catatan:
+
+- perubahan ini khusus untuk memperjelas area isi deskripsi, tanpa mengubah perilaku submit atau validasi
+
+## Warna Stok Katalog Buku Aktif
+
+Status:
+
+- kolom stok di `Katalog Buku Aktif` sekarang memakai warna berdasarkan rasio stok tersedia terhadap stok total
+
+Perubahan:
+
+- `frontend/admin/buku-view.js` menambahkan helper `stockPill()`
+- stok penuh tampil hijau
+- stok setengah atau di bawahnya sampai di atas seperempat tampil kuning
+- stok seperempat ke bawah tampil merah
+
+Catatan:
+
+- format angka tetap `tersedia/total`, jadi informasi stok masih terbaca jelas
+- perubahan ini hanya memengaruhi tampilan tabel buku aktif di `buku.html`
+
+## Modal Buku Terkunci Ke Tombol X
+
+Status:
+
+- modal tambah dan edit buku di `frontend/admin/buku-view.js` sekarang hanya bisa ditutup lewat tombol `×`
+
+Perubahan:
+
+- tombol `BATAL` di form buku dihapus
+- penutupan lewat klik backdrop dimatikan
+- penutupan lewat tombol `Escape` dimatikan
+
+Catatan:
+
+- modal tetap bisa menutup setelah submit berhasil
+- perubahan ini berlaku untuk tambah buku dan edit buku karena memakai modal yang sama
+
+## Tanda Wajib Berwarna Merah
+
+Status:
+
+- semua label input wajib yang memakai tanda `*` sekarang menampilkan `*` berwarna merah
+
+Perubahan:
+
+- `frontend/shared/components.js` menambahkan formatter label untuk mengganti `*` menjadi span merah
+- `frontend/shared/styles.css` menambahkan kelas `.required-star`
+- label wajib yang ditulis manual di form buku, sirkulasi, anggota, dan tambah pengguna diseragamkan memakai formatter yang sama
+
+Catatan:
+
+- field yang dirender lewat helper `field()` ikut terdampak otomatis
+- perubahan ini hanya visual, tidak mengubah validasi atau perilaku submit
+
+## Cache-Buster Untuk Buku Aktif
+
+Status:
+
+- halaman `frontend/admin/buku.html` sudah diarahkan untuk memuat `components.js` versi terbaru agar export `renderLabelHtml` terbaca di browser
+
+Perubahan:
+
+- import di `frontend/admin/buku-view.js` diberi query cache-buster
+- ini mencegah browser memakai modul lama yang belum mengenali export baru
+
+Catatan:
+
+- perbaikan ini khusus untuk memulihkan render halaman buku aktif setelah error module di browser
+
+## Cache-Buster Untuk Kategori
+
+Status:
+
+- halaman kategori juga diarahkan untuk memuat `components.js` versi terbaru agar label wajib tampil merah di modal
+
+Perubahan:
+
+- import di `frontend/admin/kategori.js` diberi query cache-buster yang sama
+- browser dipaksa memakai modul shared terbaru saat membuka `kategori.html`
+
+Catatan:
+
+- ini menarget kasus visual yang masih terlihat memakai bundle lama meski source sudah diperbarui
+
+## Cache-Buster Diseragamkan
+
+Status:
+
+- semua halaman yang memakai label wajib sekarang mengarah ke `components.js?v=20260727`
+
+Perubahan:
+
+- `frontend/admin/anggota-view.js`
+- `frontend/admin/buku-db.js`
+- `frontend/admin/sirkulasi-view.js`
+- `frontend/admin/tambah-anggota-view.js`
+- `frontend/kepala-perpustakaan/tambah-pengguna.js`
+
+Catatan:
+
+- penyamaan ini dilakukan agar browser tidak mencampur modul lama dan modul baru saat membuka halaman yang sudah dimodifikasi
+
+## Semua Form Terkunci Ke Tombol X
+
+Status:
+
+- semua modal form dan form halaman mandiri yang relevan sekarang memakai tombol `×` sebagai jalur keluar utama
+
+Perubahan:
+
+- modal form kategori, anggota, buku, dan sirkulasi dihapus jalur close lewat backdrop, `Escape`, dan tombol batal
+- modal detail yang terkait di halaman sirkulasi, dashboard kepala, dan rekomendasi juga disamakan ke tombol `×`
+- halaman form mandiri seperti tambah anggota, tambah pengguna, tambah peminjaman, dan pengaturan admin diberi tombol `×` di kanan atas dan tombol `Batal` bawah dihapus
+
+Catatan:
+
+- tujuan perubahan ini adalah supaya perilaku keluar form konsisten di seluruh UI, bukan hanya di satu halaman kategori
+
+## Skala Bar Tren Laporan Disamakan
+
+Status:
+
+- chart `Tren Sirkulasi Buku Bulanan` di `frontend/admin/laporan.html` sekarang memakai skala tinggi yang sama untuk peminjaman dan pengadaan
+
+Perubahan:
+
+- tinggi bar dihitung dari satu nilai maksimum gabungan dari `loans` dan `books_added`
+- basis tinggi terpisah yang sebelumnya membuat pengadaan terlihat lebih pendek sudah dihapus
+
+Catatan:
+
+- ini memastikan bar yang lebih tinggi benar-benar merepresentasikan angka yang lebih besar, bukan karena offset visual
+
 ## Link Rekomendasi Pengadaan
 
 Status:

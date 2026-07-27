@@ -1,5 +1,5 @@
 import { apiFetch } from "../shared/api.js";
-import { escapeHtml, field, renderDocument, stat } from "../shared/components.js";
+import { escapeHtml, field, renderDocument, renderLabelHtml, stat } from "../shared/components.js?v=20260727";
 import { renderAdminShell } from "../shared/layout-admin.js";
 
 const state = {
@@ -37,6 +37,20 @@ function statusPill(status) {
   return status === "aktif" ? '<span class="pill green">Aktif</span>' : '<span class="pill red">Nonaktif</span>';
 }
 
+function stockPill(available, total) {
+  const stockTotal = Number(total || 0);
+  const stockAvailable = Number(available || 0);
+
+  if (stockTotal <= 0) {
+    return '<span class="pill red">0/0</span>';
+  }
+
+  const ratio = stockAvailable / stockTotal;
+  const tone = ratio <= 0.25 ? "red" : ratio <= 0.5 ? "amber" : "green";
+
+  return `<span class="pill ${tone}">${escapeHtml(`${stockAvailable}/${stockTotal}`)}</span>`;
+}
+
 function activeCategories() {
   return state.categories.filter((category) => category.status === "aktif");
 }
@@ -70,7 +84,7 @@ function buildTable(items) {
     <td>${escapeHtml(item.publisher)}</td>
     <td>${escapeHtml(String(item.publication_year || "-"))}</td>
     <td>${escapeHtml(item.category_name || "-")}</td>
-    <td><strong>${escapeHtml(String(item.stock_available))}/${escapeHtml(String(item.stock_total))}</strong></td>
+    <td>${stockPill(item.stock_available, item.stock_total)}</td>
     <td>${statusPill(item.status)}</td>
     <td><div class="actions">
       <button class="row-btn" data-action="edit" data-id="${item.id}" aria-label="Edit buku">✎</button>
@@ -157,7 +171,7 @@ function bookModal(book = null) {
         <p style="margin:0;color:#6e7979;font-size:12px;line-height:16px">Masukkan informasi katalog lengkap sesuai buku fisik</p>
         <div class="login-alert" data-book-alert hidden></div>
         <div class="field full">
-          <label>KATEGORI BUKU *</label>
+          <label>${renderLabelHtml("KATEGORI BUKU *")}</label>
           <select class="input" name="category_id" required>${categoryOptions(selectedCategory)}</select>
         </div>
         ${field("JUDUL BUKU *", book?.title || "", { name: "title", placeholder: "Contoh: Belajar Pemrograman Web", full: true })}
@@ -183,7 +197,6 @@ function bookModal(book = null) {
         </div>
         ${field("DESKRIPSI", book?.description || "", { name: "description", textarea: true, placeholder: "Tuliskan deskripsi singkat buku..." })}
         <div class="form-actions">
-          <button class="btn" type="button" data-modal-cancel>BATAL</button>
           <button class="btn primary" type="submit">${isEdit ? "SIMPAN PERUBAHAN" : "SIMPAN BUKU"}</button>
         </div>
       </form>
@@ -234,24 +247,13 @@ function openBookModal(book = null) {
   const layer = document.querySelector(".modal-layer");
   const form = layer?.querySelector("[data-book-form]");
   const closeButton = layer?.querySelector(".modal-close");
-  const cancelButton = layer?.querySelector("[data-modal-cancel]");
   const alertBox = layer?.querySelector("[data-book-alert]");
 
   const closeModal = () => {
-    document.removeEventListener("keydown", onKeyDown);
     layer?.remove();
   };
 
-  const onKeyDown = (event) => {
-    if (event.key === "Escape") closeModal();
-  };
-
-  document.addEventListener("keydown", onKeyDown);
-  layer?.addEventListener("click", (event) => {
-    if (event.target === layer) closeModal();
-  });
   closeButton?.addEventListener("click", closeModal);
-  cancelButton?.addEventListener("click", closeModal);
 
   form?.addEventListener("submit", async (event) => {
     event.preventDefault();

@@ -253,15 +253,19 @@ function renderReportFilterLayer() {
 function renderActivityChart() {
   const chartYear = Number.parseInt(state.filters.chartYear, 10) || new Date().getFullYear();
   const items = getMonthActivity(state.monthlyActivity, chartYear);
-  const maxLoans = Math.max(1, ...items.map((item) => Number(item.loans || 0)));
-  const maxBooks = Math.max(1, ...items.map((item) => Number(item.books_added || 0)));
+  const maxActivity = Math.max(
+    1,
+    ...items.flatMap((item) => [Number(item.loans || 0), Number(item.books_added || 0)]),
+  );
+  const barMaxHeight = 184;
+  const barMinHeight = 12;
 
   const bars = items
     .map((item, index) => {
       const loanCount = Number(item.loans || 0);
       const bookCount = Number(item.books_added || 0);
-      const loanHeight = loanCount > 0 ? 92 + Math.round((loanCount / maxLoans) * 78) : 0;
-      const bookHeight = bookCount > 0 ? 106 + Math.round((bookCount / maxBooks) * 70) : 0;
+      const loanHeight = loanCount > 0 ? Math.max(barMinHeight, Math.round((loanCount / maxActivity) * barMaxHeight)) : 0;
+      const bookHeight = bookCount > 0 ? Math.max(barMinHeight, Math.round((bookCount / maxActivity) * barMaxHeight)) : 0;
       const loanBar = loanCount > 0 ? `<span class="report-bar report-bar-loan" title="${escapeHtml(item.month_label || item.label || "")}: ${formatCount(loanCount)}" style="height:${loanHeight}px"></span>` : "";
       const bookBar = bookCount > 0 ? `<span class="report-bar report-bar-book" title="${escapeHtml(item.month_label || item.label || "")}: ${formatCount(bookCount)}" style="height:${bookHeight}px"></span>` : "";
       return `<div class="report-chart-col">
