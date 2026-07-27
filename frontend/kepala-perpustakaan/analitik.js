@@ -255,6 +255,11 @@ function renderRecommendationTable() {
       </thead>
       <tbody>${body}</tbody>
     </table>
+    <div class="report-reco-footer">
+      <a class="report-detail-link report-reco-link" href="rekomendasi.html">
+        Lihat Seluruh Rekomendasi (${formatCount(rows.length)} Judul)
+      </a>
+    </div>
   </section>`;
 }
 

@@ -212,7 +212,7 @@ function renderTopBooks() {
       <div>
         <h2>Top-up Buku Terpopuler</h2>
       </div>
-      <a class="head-link" href="koleksi.html">Lihat Semua Data</a>
+      <a class="head-link" href="semua-dashboard.html">Lihat Semua Data</a>
     </div>
     <div class="head-table-wrap">
       <table class="head-table">
