@@ -1,8 +1,8 @@
 # Handoff Notes — EIS Balangan Frontend
 
-Tanggal catatan: 2026-07-26
+Tanggal catatan: 2026-07-27
 
-Pembaruan terakhir: 2026-07-26 23:59:59
+Pembaruan terakhir: 2026-07-27 13:58:14
 
 ## Tujuan saat ini
 
@@ -28,6 +28,22 @@ Komponen shared yang dipakai lintas halaman:
 - `frontend/shared/layout-admin.js`
 - `frontend/shared/layout-kepala.js`
 - `frontend/shared/sidebar-admin.js`
+
+## Search Detail Tanpa Putus Fokus
+
+Status:
+
+- search pada `frontend/kepala-perpustakaan/semua-dashboard.html` sekarang dirender di luar region tabel
+- tabel masih bisa rerender untuk pagination dan filter tanpa memutus fokus input
+
+Perubahan:
+
+- `frontend/kepala-perpustakaan/semua-dashboard.js` menghapus duplikasi render search di dalam `renderTable()`
+- input search tetap dipertahankan di `all-search-static`, sedangkan pembaruan dinamis hanya menyentuh tabel dan statistik
+
+Catatan:
+
+- perbaikan ini langsung menarget masalah user harus klik ulang setelah mengetik huruf pertama seperti `s` lalu `sa`
 - `frontend/shared/sidebar-kepala.js`
 - `frontend/shared/topbar-admin.js`
 - `frontend/shared/topbar-kepala.js`
@@ -95,7 +111,65 @@ Isi halaman ada di file terpisah, misalnya:
   - Tabel menampilkan nama lengkap, username, peran, email/unit, status, dan login terakhir.
 - **Catatan**:
   - Endpoint ini memakai role executive, jadi hanya admin dan kepala perpustakaan yang bisa mengaksesnya.
-  - Kalau nanti dibutuhkan aksi edit/hapus pengguna, endpoint detail/update perlu ditambahkan terpisah.
+- Kalau nanti dibutuhkan aksi edit/hapus pengguna, endpoint detail/update perlu ditambahkan terpisah.
+
+## Tautan Detail Dashboard Kepala Perpustakaan
+
+- **Status**: selesai, tombol `Lihat Semua Data` dari dashboard utama sekarang membuka halaman detail dashboard yang sudah disiapkan.
+- **Perubahan**:
+  - `frontend/kepala-perpustakaan/dashboard.js` mengubah tujuan tautan dari `koleksi.html` menjadi `semua-dashboard.html`.
+  - Halaman `frontend/kepala-perpustakaan/semua-dashboard.html` dan `frontend/kepala-perpustakaan/semua-dashboard.js` tetap dipakai sebagai detail data resmi.
+- **Catatan**:
+  - Tidak ada perubahan layout besar karena halaman detail yang diminta sudah tersedia; yang dibutuhkan hanya penyambungan navigasi agar klik tombol mengarah ke halaman yang benar.
+
+## Detail Dashboard Kepala Perpustakaan Terhubung Database
+
+- **Status**: selesai, halaman `frontend/kepala-perpustakaan/semua-dashboard.html` sekarang memuat data nyata dari endpoint laporan.
+- **Perubahan**:
+  - `frontend/kepala-perpustakaan/semua-dashboard.js` diubah dari mock statis menjadi halaman dinamis berbasis `apiFetch("/api/reports/overview")`.
+  - KPI, tabel top buku, donut kategori, demografi, dan transaksi terbaru kini dirender dari respons database.
+  - Ditambahkan filter kategori, pencarian buku, dan kontrol tahun agar data bisa disaring tanpa mengubah halaman lain.
+  - `frontend/shared/styles.css` ditambah kelas `all-*` untuk menjaga layout detail tetap rapi di desktop dan mobile.
+- **Catatan**:
+  - Halaman ini memakai endpoint laporan yang sama dengan analitik, jadi jika backend laporan berubah, detail dashboard ini ikut berubah.
+  - Pencarian buku saat ini masih filter sisi-klien dari data yang sudah diambil; jika nanti perlu pencarian global, backend perlu menambah parameter pencarian pada endpoint laporan.
+
+## Detail Dashboard Disesuaikan Dengan Screenshot Referensi
+
+- **Status**: selesai, tampilan halaman detail sekarang lebih dekat ke referensi yang hanya menampilkan tabel utama, statistik bawah, dan footer ringkas.
+- **Perubahan**:
+  - `frontend/kepala-perpustakaan/semua-dashboard.js` disederhanakan menjadi satu hero, satu kartu tabel utama, KPI bawah, dan footer.
+  - `frontend/kepala-perpustakaan/semua-dashboard.js` sekarang mengambil data buku lengkap dari `/api/books` dan tetap mengambil ringkasan dari `/api/reports/overview`.
+  - `backend/routes/api.php` menambahkan field `borrowed_quantity` dan `last_borrowed_at` pada respons `GET /api/books` agar kolom ranking dan last borrowed berasal dari database.
+  - `frontend/shared/styles.css` menambah dan menyesuaikan kelas `all-*` untuk meniru struktur visual pada screenshot referensi.
+  - Update area tabel dibuat parsial agar input search tetap nyaman dipakai tanpa kehilangan fokus.
+- **Catatan**:
+  - Ranking saat ini dihitung dari urutan hasil filter dan sort `borrowed_quantity`, jadi akan berubah mengikuti filter yang aktif.
+  - Bila nanti dibutuhkan tombol aksi yang benar-benar membuka detail buku, endpoint detail buku perlu ditambahkan terpisah.
+
+## Footer Dihapus Dan Filter Disamakan Dengan Admin
+
+- **Status**: selesai, footer halaman detail sudah dihapus dan filter sekarang mengikuti pola popover seperti admin.
+- **Perubahan**:
+  - `frontend/kepala-perpustakaan/semua-dashboard.js` menghapus render footer dari halaman detail.
+  - Tombol aksi tabel diganti menjadi ikon kecil bergaya tombol untuk lihat detail dan unduh.
+  - Filter dipindah ke popover dengan struktur `modal-head`, `modal-body`, tombol `RESET`, dan `Terapkan` seperti admin.
+  - Search tetap diletakkan di bar atas kartu supaya interaksi tetap cepat tanpa membuka popover.
+- **Catatan**:
+  - Popover filter saat ini mengikuti pola visual admin, tetapi dataset dan perilaku filternya tetap khusus untuk halaman detail dashboard.
+  - Jika nanti ingin aksi detail dan unduh benar-benar bekerja, perlu handler tambahan di `frontend/kepala-perpustakaan/semua-dashboard.js`.
+
+## Aksi Search Filter Export Diperbaiki
+
+- **Status**: selesai, tombol export, search, filter, dan aksi baris pada halaman detail dashboard sudah memiliki perilaku nyata.
+- **Perubahan**:
+  - `frontend/kepala-perpustakaan/semua-dashboard.js` sekarang mengekspor CSV dari data yang sedang difilter.
+  - Ikon mata membuka modal detail buku, sedangkan ikon unduh mengekspor satu baris buku.
+  - Filter popover membaca kategori dan tahun dari form lalu memuat ulang data saat diperlukan.
+  - Search tetap memfilter tabel secara live tanpa mengganggu state lain.
+- **Catatan**:
+  - Detail modal saat ini masih bersifat read-only, cukup untuk inspeksi cepat dan ekspor per baris.
+  - Jika nanti diperlukan aksi lanjutan seperti edit, bisa ditambahkan endpoint dan modal terpisah.
 
 ## Catatan file yang dihapus
 
@@ -105,10 +179,7 @@ Isi halaman ada di file terpisah, misalnya:
 
 ## File penting yang terakhir berubah
 
-- `backend/routes/api.php`
-- `frontend/kepala-perpustakaan/pengguna.js`
-- `frontend/kepala-perpustakaan/analitik.js`
-- `frontend/kepala-perpustakaan/koleksi.js`
+- `frontend/kepala-perpustakaan/rekomendasi.js`
 - `CONVERSATION_LOG.md`
 - `HANDOFF_NOTES.md`
 
@@ -132,6 +203,38 @@ Lalu buka:
 ## Status teknis
 
 Semua file JS yang ada di `frontend/` sudah lolos `node --check` terakhir kali dicek.
+
+## Link Rekomendasi Pengadaan
+
+Status:
+
+- kartu analitik sekarang punya link langsung ke halaman rekomendasi detail
+
+Perubahan:
+
+- teks `Lihat Seluruh Rekomendasi (24 Judul)` diubah menjadi anchor ke `frontend/kepala-perpustakaan/rekomendasi.html`
+- footer kartu diberi ruang khusus supaya link tampil terpisah dari tabel
+
+Catatan:
+
+- halaman tujuan sudah ada, jadi alur pindah halaman tidak perlu route baru atau file tambahan
+
+## Rekomendasi Terhubung Database
+
+Status:
+
+- halaman rekomendasi kepala perpustakaan sekarang menarik data buku dari API dan tidak lagi hardcoded
+
+Perubahan:
+
+- `frontend/kepala-perpustakaan/rekomendasi.js` memuat data dari `/api/books` dan `/api/reports/overview`
+- search, filter kategori, filter status stok, pagination, ekspor CSV, dan modal detail aktif di sisi frontend
+- kartu KPI, ringkasan anggaran, dan tabel rekomendasi dibangun dari data yang datang dari database
+
+Catatan:
+
+- search bar sengaja dipisah dari region tabel agar fokus input tidak hilang saat tabel direrender
+- kalau nanti mau disamakan lebih dekat ke desain referensi, langkah berikutnya biasanya tinggal menyesuaikan CSS kecil di `frontend/shared/styles.css`
 
 ## Audit data awal
 

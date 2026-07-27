@@ -1267,3 +1267,111 @@ Hasil:
 - `frontend/kepala-perpustakaan/pengaturan.js` diubah menjadi form dinamis yang memuat nilai aplikasi, instansi, identitas kepala, kontak, lama pinjam, dan denda harian
 - perubahan pengaturan sekarang dikirim ke API lalu dirender ulang dari respons database terbaru
 - file `backend/routes/api.php` dan `frontend/kepala-perpustakaan/pengaturan.js` lolos pengecekan sintaks setelah perubahan
+
+## 84) Prompt delapan puluh empat: tombol lihat semua data diarahkan ke halaman detail dashboard
+
+User meminta:
+
+- saat klik `Lihat Semua Data`, halaman baru yang tampil harus seperti referensi detail dashboard pada gambar
+
+Hasil:
+
+- tautan `Lihat Semua Data` di `frontend/kepala-perpustakaan/dashboard.js` diarahkan ke `semua-dashboard.html`
+- halaman detail dashboard yang sudah ada sekarang menjadi tujuan resmi tombol tersebut
+- struktur tampilan detail tetap mengikuti shell kepala perpustakaan dengan ringkasan, tabel, dan statistik bawah
+
+## 85) Prompt delapan puluh lima: halaman detail dashboard disambungkan ke database
+
+User meminta:
+
+- `frontend/kepala-perpustakaan/semua-dashboard.html` dibuat bisa berinteraksi dengan database
+
+Hasil:
+
+- `frontend/kepala-perpustakaan/semua-dashboard.js` diubah dari mock statis menjadi halaman dinamis yang memanggil endpoint `/api/reports/overview`
+- data ringkasan, top buku, top kategori, demografi, dan transaksi terbaru sekarang dirender dari respons database
+- ditambahkan filter kategori, pencarian buku, dan kontrol tahun analisis di halaman detail
+- `frontend/shared/styles.css` ditambah kelas khusus agar layout detail, tabel, donut chart, dan transaksi terbaru tetap rapi di desktop dan mobile
+
+## 86) Prompt delapan puluh enam: tampilan detail dashboard disesuaikan dengan screenshot referensi
+
+User meminta:
+
+- tampilan `frontend/kepala-perpustakaan/semua-dashboard.html` dibuat seperti gambar referensi yang hanya menampilkan tabel utama, statistik bawah, dan footer ringkas
+
+Hasil:
+
+- `frontend/kepala-perpustakaan/semua-dashboard.js` disederhanakan menjadi satu hero, satu kartu tabel utama, statistik bawah, dan footer
+- tabel utama sekarang memakai data buku lengkap dari endpoint `/api/books`, lalu menampilkan `ranking`, `book title`, `category`, `total borrowed`, `stock status`, `last borrowed`, dan `actions`
+- endpoint `/api/books` di backend ditambah field `borrowed_quantity` dan `last_borrowed_at` supaya kolom tabel bisa diisi dari database
+- rendering halaman dibuat lebih stabil saat search atau filter berubah karena area tabel diperbarui tanpa me-render ulang seluruh halaman
+- styling `frontend/shared/styles.css` disesuaikan agar susunan visual lebih dekat ke screenshot referensi
+
+## 87) Prompt delapan puluh tujuh: footer dihapus dan filter serta aksi disamakan dengan admin
+
+User meminta:
+
+- footer pada halaman detail dihapus
+- tombol aksi diperbaiki agar sama seperti contoh
+- filter dibuat sama seperti admin
+
+Hasil:
+
+- footer halaman detail sudah dihapus dari render HTML
+- tombol aksi tabel diganti menjadi dua ikon kecil bergaya tombol, dengan ikon lihat detail dan unduh
+- filter dipindah ke popover seperti pola admin, lengkap dengan header popover, tombol tutup, dan tombol `RESET` serta `Terapkan`
+- search tetap tersedia di bar atas kartu agar struktur halaman tetap mendekati referensi
+- `frontend/kepala-perpustakaan/semua-dashboard.js` lolos pengecekan sintaks setelah penyesuaian
+
+## 88) Prompt delapan puluh delapan: aksi, search, filter, dan export halaman detail diperbaiki
+
+User meminta:
+
+- tombol aksi, search, filter, dan export pada halaman detail dashboard diperbaiki agar berfungsi dengan benar
+
+Hasil:
+
+- tombol export sekarang mengunduh CSV berdasarkan data yang sedang terfilter di halaman
+- ikon mata pada setiap baris membuka modal detail buku yang menampilkan ringkasan data dari database
+- ikon unduh pada setiap baris mengunduh CSV satu-baris untuk buku terkait
+- tombol filter sekarang benar-benar membaca nilai `kategori` dan `tahun` dari popover lalu memuat ulang data bila diperlukan
+- search tetap memfilter tabel secara live tanpa me-reset state lain
+- `frontend/kepala-perpustakaan/semua-dashboard.js` lolos pengecekan sintaks setelah perbaikan interaksi
+
+## 89) Prompt delapan puluh sembilan: fokus search di halaman semua dashboard diperbaiki
+
+User meminta:
+
+- field search di `frontend/kepala-perpustakaan/semua-dashboard.html` tidak boleh kehilangan fokus setelah mengetik huruf pertama
+
+Hasil:
+
+- search input dipindah ke region statis di luar pembaruan tabel sehingga tidak ikut rerender saat isi tabel berubah
+- elemen search yang sebelumnya ikut dibangun ulang di `renderTable()` dihapus
+- hasilnya pengguna bisa mengetik berurutan tanpa perlu klik ulang pada setiap karakter
+
+## 90) Prompt sembilan puluh: tautan ke halaman rekomendasi diperjelas
+
+User meminta:
+
+- tahu link mana yang dipakai untuk berpindah dari kartu analitik ke halaman rekomendasi detail seperti referensi
+
+Hasil:
+
+- teks `Lihat Seluruh Rekomendasi (...)` di kartu analitik sekarang menjadi link ke `frontend/kepala-perpustakaan/rekomendasi.html`
+- footer kartu diberi area khusus agar link tampil seperti elemen navigasi di bawah tabel
+- halaman tujuan sudah tersedia dan dapat dibuka langsung dari kartu analitik
+
+## 91) Prompt sembilan puluh satu: halaman rekomendasi dihubungkan ke database
+
+User meminta:
+
+- `frontend/kepala-perpustakaan/rekomendasi.html` dibuat agar bisa berinteraksi dengan database
+
+Hasil:
+
+- `frontend/kepala-perpustakaan/rekomendasi.js` diubah menjadi modul dinamis yang memuat data buku dari `/api/books`
+- tabel rekomendasi sekarang punya search, filter kategori, filter status stok, pagination, ekspor CSV, dan aksi detail/unduh per baris
+- kartu KPI, ringkasan analisis, dan estimasi anggaran dihitung dari data database yang sedang tampil
+- modal detail buku menampilkan informasi stok dan rekomendasi langsung dari data yang dimuat
+- pengecekan sintaks `node --check` untuk `frontend/kepala-perpustakaan/rekomendasi.js` berhasil
