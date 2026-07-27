@@ -711,9 +711,23 @@ $router->get('/api/books', function (App\Http\Request $request, array $context) 
             'SELECT
                 b.*,
                 c.code AS category_code,
-                c.name AS category_name
+                c.name AS category_name,
+                COALESCE(borrowed.borrowed_quantity, 0) AS borrowed_quantity,
+                latest.last_borrowed_at AS last_borrowed_at
              FROM books b
              INNER JOIN categories c ON c.id = b.category_id
+             LEFT JOIN (
+                SELECT li.book_id, SUM(li.quantity) AS borrowed_quantity
+                FROM loan_items li
+                INNER JOIN loans l ON l.id = li.loan_id
+                GROUP BY li.book_id
+             ) borrowed ON borrowed.book_id = b.id
+             LEFT JOIN (
+                SELECT li.book_id, MAX(l.loan_date) AS last_borrowed_at
+                FROM loan_items li
+                INNER JOIN loans l ON l.id = li.loan_id
+                GROUP BY li.book_id
+             ) latest ON latest.book_id = b.id
              ORDER BY b.created_at DESC, b.id DESC'
         );
         $rows = $statement ? $statement->fetchAll(PDO::FETCH_ASSOC) : [];
@@ -909,7 +923,8 @@ $router->get('/api/reports/overview', function (App\Http\Request $request, array
                 b.stock_available,
                 c.code AS category_code,
                 c.name AS category_name,
-                COALESCE(SUM(CASE WHEN l.id IS NOT NULL THEN li.quantity ELSE 0 END), 0) AS borrowed_quantity
+                COALESCE(SUM(CASE WHEN l.id IS NOT NULL THEN li.quantity ELSE 0 END), 0) AS borrowed_quantity,
+                MAX(l.loan_date) AS last_borrowed_at
              FROM books b
              INNER JOIN categories c ON c.id = b.category_id
              LEFT JOIN loan_items li ON li.book_id = b.id
@@ -936,6 +951,7 @@ $router->get('/api/reports/overview', function (App\Http\Request $request, array
                 'stock_total' => (int) ($row['stock_total'] ?? 0),
                 'stock_available' => $stockAvailable,
                 'status' => (string) $row['status'],
+                'last_borrowed_at' => $row['last_borrowed_at'],
             ];
         }
 
