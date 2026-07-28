@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 use App\Http\Response;
 use App\Middleware\AuthMiddleware;
+use App\Support\BookValidation;
+use App\Support\MemberValidation;
 use App\Support\Token;
 use App\Support\Database;
 
@@ -56,6 +58,20 @@ $formatBook = function (array $row): array {
         'created_by' => $row['created_by'] !== null ? (int) $row['created_by'] : null,
         'updated_by' => $row['updated_by'] !== null ? (int) $row['updated_by'] : null,
     ];
+};
+
+$isDuplicateIsbnException = function (Throwable $throwable): bool {
+    if (!$throwable instanceof PDOException) {
+        return false;
+    }
+
+    if ((string) $throwable->getCode() !== '23000') {
+        return false;
+    }
+
+    $message = strtolower($throwable->getMessage());
+
+    return str_contains($message, 'uq_books_isbn') || str_contains($message, 'books.isbn');
 };
 
 $getNextCategoryCode = function (PDO $pdo): string {
@@ -112,24 +128,41 @@ $getBookById = function (PDO $pdo, int $id): ?array {
 };
 
 $formatMember = function (array $row): array {
+    $gender = MemberValidation::normalizeGenderValue((string) ($row['gender'] ?? ''));
+    $status = MemberValidation::normalizeStatusValue((string) ($row['status'] ?? ''));
+
     return [
         'id' => (int) $row['id'],
         'member_code' => (string) $row['member_code'],
         'full_name' => (string) $row['full_name'],
         'nik' => $row['nik'],
         'birth_date' => $row['birth_date'],
-        'gender' => $row['gender'],
+        'gender' => $gender !== '' ? $gender : (string) $row['gender'],
         'address' => $row['address'],
         'city' => $row['city'],
         'phone' => $row['phone'],
         'email' => $row['email'],
-        'status' => (string) $row['status'],
+        'status' => $status !== '' ? $status : (string) $row['status'],
         'joined_at' => $row['joined_at'],
         'created_at' => $row['created_at'],
         'updated_at' => $row['updated_at'],
         'created_by' => $row['created_by'] !== null ? (int) $row['created_by'] : null,
         'updated_by' => $row['updated_by'] !== null ? (int) $row['updated_by'] : null,
     ];
+};
+
+$isDuplicateMemberNikException = function (Throwable $throwable): bool {
+    if (!$throwable instanceof PDOException) {
+        return false;
+    }
+
+    if ((string) $throwable->getCode() !== '23000') {
+        return false;
+    }
+
+    $message = strtolower($throwable->getMessage());
+
+    return str_contains($message, 'uq_members_nik') || str_contains($message, 'members.nik');
 };
 
 $formatUser = function (array $row): array {
@@ -156,11 +189,7 @@ $formatUser = function (array $row): array {
 };
 
 $getNextMemberCode = function (PDO $pdo): string {
-    $statement = $pdo->query("SELECT COALESCE(MAX(CAST(SUBSTRING(member_code, 5) AS UNSIGNED)), 0) AS max_number FROM members WHERE member_code LIKE 'ANG-%'");
-    $row = $statement ? $statement->fetch(PDO::FETCH_ASSOC) : null;
-    $next = (int) ($row['max_number'] ?? 0) + 1;
-
-    return sprintf('ANG-%03d', $next);
+    return MemberValidation::generateMemberCode($pdo);
 };
 
 $getMemberById = function (PDO $pdo, int $id): ?array {
@@ -2071,9 +2100,10 @@ $router->get('/api/members', function (App\Http\Request $request, array $context
         return $identity;
     }
 
-    $search = trim((string) ($request->query('q', $request->query('search', '')) ?? ''));
-    $statusFilter = trim((string) ($request->query('status', 'all') ?? 'all'));
-    $genderFilter = trim((string) ($request->query('gender', 'all') ?? 'all'));
+    $search = MemberValidation::sanitizeInput($request->query('q', $request->query('search', '')) ?? '');
+    $statusFilter = MemberValidation::normalizeStatusValue($request->query('status', 'all') ?? 'all');
+    $genderFilter = MemberValidation::normalizeGenderValue($request->query('gender', 'all') ?? 'all');
+    $ageRange = MemberValidation::sanitizeInput($request->query('age_range', 'all') ?? 'all');
 
     try {
         $pdo = Database::connection($context['database']);
@@ -2082,32 +2112,39 @@ $router->get('/api/members', function (App\Http\Request $request, array $context
 
         if ($search !== '') {
             $conditions[] = '('
-                . 'member_code LIKE :search_member_code OR '
-                . 'full_name LIKE :search_full_name OR '
-                . 'nik LIKE :search_nik OR '
-                . 'city LIKE :search_city OR '
-                . 'phone LIKE :search_phone OR '
-                . 'email LIKE :search_email OR '
-                . 'address LIKE :search_address'
+                . 'LOWER(COALESCE(member_code, "")) LIKE :search_member_code OR '
+                . 'LOWER(COALESCE(full_name, "")) LIKE :search_full_name OR '
+                . 'COALESCE(nik, "") LIKE :search_nik OR '
+                . 'COALESCE(phone, "") LIKE :search_phone'
                 . ')';
-            $searchValue = '%' . $search . '%';
+            $searchLower = function_exists('mb_strtolower') ? mb_strtolower($search) : strtolower($search);
+            $searchValue = '%' . $searchLower . '%';
             $params['search_member_code'] = $searchValue;
             $params['search_full_name'] = $searchValue;
             $params['search_nik'] = $searchValue;
-            $params['search_city'] = $searchValue;
             $params['search_phone'] = $searchValue;
-            $params['search_email'] = $searchValue;
-            $params['search_address'] = $searchValue;
         }
 
-        if (in_array($statusFilter, ['aktif', 'nonaktif'], true)) {
+        if (in_array($statusFilter, ['Aktif', 'Nonaktif'], true)) {
             $conditions[] = 'status = :status';
             $params['status'] = $statusFilter;
         }
 
-        if (in_array($genderFilter, ['laki-laki', 'perempuan'], true)) {
+        if (in_array($genderFilter, ['Laki-laki', 'Perempuan'], true)) {
             $conditions[] = 'gender = :gender';
             $params['gender'] = $genderFilter;
+        }
+
+        if (in_array($ageRange, ['0-17', '18-25', '26-40', '41-60', '60+'], true)) {
+            if ($ageRange === '60+') {
+                $conditions[] = 'TIMESTAMPDIFF(YEAR, birth_date, CURDATE()) >= :age_min';
+                $params['age_min'] = 60;
+            } else {
+                [$ageMin, $ageMax] = array_map('intval', explode('-', $ageRange, 2));
+                $conditions[] = 'TIMESTAMPDIFF(YEAR, birth_date, CURDATE()) BETWEEN :age_min AND :age_max';
+                $params['age_min'] = $ageMin;
+                $params['age_max'] = $ageMax;
+            }
         }
 
         $sql = 'SELECT * FROM members';
@@ -2130,7 +2167,8 @@ $router->get('/api/members', function (App\Http\Request $request, array $context
         $summaryRows = $summaryStatement ? $summaryStatement->fetchAll(PDO::FETCH_ASSOC) : [];
 
         foreach ($summaryRows as $summaryRow) {
-            if (($summaryRow['status'] ?? '') === 'aktif') {
+            $summaryStatus = MemberValidation::normalizeStatusValue((string) ($summaryRow['status'] ?? ''));
+            if ($summaryStatus === 'Aktif') {
                 $activeCount++;
             } else {
                 $inactiveCount++;
@@ -2484,81 +2522,32 @@ $router->post('/api/users', function (App\Http\Request $request, array $context)
     }
 });
 
-$router->post('/api/members', function (App\Http\Request $request, array $context) use ($requireAdmin, $getNextMemberCode, $getMemberById, $formatMember) {
+$router->post('/api/members', function (App\Http\Request $request, array $context) use ($requireAdmin, $getNextMemberCode, $getMemberById, $formatMember, $isDuplicateMemberNikException) {
     $identity = $requireAdmin($request, $context);
     if (is_array($identity) && array_key_exists('status', $identity)) {
         return $identity;
     }
 
     $payload = $request->json();
-    $fullName = trim((string) ($payload['full_name'] ?? ''));
-    $nik = trim((string) ($payload['nik'] ?? ''));
-    $birthDateRaw = trim((string) ($payload['birth_date'] ?? ''));
-    $gender = trim((string) ($payload['gender'] ?? ''));
-    $address = trim((string) ($payload['address'] ?? ''));
-    $city = trim((string) ($payload['city'] ?? ''));
-    $phone = trim((string) ($payload['phone'] ?? ''));
-    $email = trim((string) ($payload['email'] ?? ''));
-    $status = trim((string) ($payload['status'] ?? 'aktif'));
-    $joinedAtRaw = trim((string) ($payload['joined_at'] ?? ''));
-
-    if ($fullName === '') {
+    $validation = MemberValidation::validateMemberData($payload);
+    if (!$validation['valid']) {
         return Response::json([
             'success' => false,
-            'message' => 'Nama lengkap wajib diisi',
-        ], 422);
-    }
-
-    if (!in_array($gender, ['laki-laki', 'perempuan'], true)) {
-        return Response::json([
-            'success' => false,
-            'message' => 'Jenis kelamin wajib dipilih',
-        ], 422);
-    }
-
-    if (!in_array($status, ['aktif', 'nonaktif'], true)) {
-        $status = 'aktif';
-    }
-
-    $birthDate = null;
-    if ($birthDateRaw !== '') {
-        $birthDateObject = DateTime::createFromFormat('Y-m-d', $birthDateRaw);
-        $birthDateErrors = DateTime::getLastErrors();
-        if (!$birthDateObject || ($birthDateErrors['warning_count'] ?? 0) > 0 || ($birthDateErrors['error_count'] ?? 0) > 0) {
-            return Response::json([
-                'success' => false,
-                'message' => 'Tanggal lahir tidak valid',
-            ], 422);
-        }
-        $birthDate = $birthDateObject->format('Y-m-d');
-    }
-
-    $joinedAt = date('Y-m-d');
-    if ($joinedAtRaw !== '') {
-        $joinedAtObject = DateTime::createFromFormat('Y-m-d', $joinedAtRaw);
-        $joinedAtErrors = DateTime::getLastErrors();
-        if ($joinedAtObject && ($joinedAtErrors['warning_count'] ?? 0) === 0 && ($joinedAtErrors['error_count'] ?? 0) === 0) {
-            $joinedAt = $joinedAtObject->format('Y-m-d');
-        }
-    }
-
-    if ($email !== '' && !filter_var($email, FILTER_VALIDATE_EMAIL)) {
-        return Response::json([
-            'success' => false,
-            'message' => 'Email tidak valid',
+            'message' => MemberValidation::firstError($validation['errors']),
+            'errors' => $validation['errors'],
         ], 422);
     }
 
     try {
         $pdo = Database::connection($context['database']);
-
-        if ($nik !== '') {
+        if ($validation['data']['nik'] !== null) {
             $nikStatement = $pdo->prepare('SELECT id FROM members WHERE nik = :nik LIMIT 1');
-            $nikStatement->execute(['nik' => $nik]);
+            $nikStatement->execute(['nik' => $validation['data']['nik']]);
             if ($nikStatement->fetch(PDO::FETCH_ASSOC)) {
                 return Response::json([
                     'success' => false,
-                    'message' => 'NIK sudah digunakan anggota lain',
+                    'message' => 'NIK sudah terdaftar.',
+                    'errors' => ['nik' => 'NIK sudah terdaftar.'],
                 ], 422);
             }
         }
@@ -2573,16 +2562,16 @@ $router->post('/api/members', function (App\Http\Request $request, array $contex
         );
         $statement->execute([
             'member_code' => $code,
-            'full_name' => $fullName,
-            'nik' => $nik !== '' ? $nik : null,
-            'birth_date' => $birthDate,
-            'gender' => $gender,
-            'address' => $address !== '' ? $address : null,
-            'city' => $city !== '' ? $city : null,
-            'phone' => $phone !== '' ? $phone : null,
-            'email' => $email !== '' ? $email : null,
-            'status' => $status,
-            'joined_at' => $joinedAt,
+            'full_name' => $validation['data']['full_name'],
+            'nik' => $validation['data']['nik'],
+            'birth_date' => $validation['data']['birth_date'],
+            'gender' => $validation['data']['gender'],
+            'address' => $validation['data']['address'],
+            'city' => $validation['data']['city'],
+            'phone' => $validation['data']['phone'],
+            'email' => $validation['data']['email'],
+            'status' => $validation['data']['status'],
+            'joined_at' => date('Y-m-d'),
             'created_by' => $identity['user_id'],
             'updated_by' => $identity['user_id'],
         ]);
@@ -2595,6 +2584,14 @@ $router->post('/api/members', function (App\Http\Request $request, array $contex
             'data' => $created ? $formatMember($created) : null,
         ], 201);
     } catch (Throwable $throwable) {
+        if ($isDuplicateMemberNikException($throwable)) {
+            return Response::json([
+                'success' => false,
+                'message' => 'NIK sudah terdaftar.',
+                'errors' => ['nik' => 'NIK sudah terdaftar.'],
+            ], 422);
+        }
+
         return Response::json([
             'success' => false,
             'message' => 'Gagal menambahkan anggota',
@@ -2603,7 +2600,7 @@ $router->post('/api/members', function (App\Http\Request $request, array $contex
     }
 });
 
-$router->put('/api/members', function (App\Http\Request $request, array $context) use ($requireAdmin, $getMemberById, $formatMember) {
+$router->put('/api/members', function (App\Http\Request $request, array $context) use ($requireAdmin, $getMemberById, $formatMember, $isDuplicateMemberNikException) {
     $identity = $requireAdmin($request, $context);
     if (is_array($identity) && array_key_exists('status', $identity)) {
         return $identity;
@@ -2611,61 +2608,20 @@ $router->put('/api/members', function (App\Http\Request $request, array $context
 
     $payload = $request->json();
     $id = (int) ($payload['id'] ?? 0);
-    $fullName = trim((string) ($payload['full_name'] ?? ''));
-    $nik = trim((string) ($payload['nik'] ?? ''));
-    $birthDateRaw = trim((string) ($payload['birth_date'] ?? ''));
-    $gender = trim((string) ($payload['gender'] ?? ''));
-    $address = trim((string) ($payload['address'] ?? ''));
-    $city = trim((string) ($payload['city'] ?? ''));
-    $phone = trim((string) ($payload['phone'] ?? ''));
-    $email = trim((string) ($payload['email'] ?? ''));
-    $status = trim((string) ($payload['status'] ?? 'aktif'));
-    $joinedAtRaw = trim((string) ($payload['joined_at'] ?? ''));
+    $validation = MemberValidation::validateMemberData($payload);
 
-    if ($id <= 0 || $fullName === '') {
+    if ($id <= 0) {
         return Response::json([
             'success' => false,
-            'message' => 'ID dan nama lengkap anggota wajib diisi',
+            'message' => 'ID anggota tidak valid',
         ], 422);
     }
 
-    if (!in_array($gender, ['laki-laki', 'perempuan'], true)) {
+    if (!$validation['valid']) {
         return Response::json([
             'success' => false,
-            'message' => 'Jenis kelamin wajib dipilih',
-        ], 422);
-    }
-
-    if (!in_array($status, ['aktif', 'nonaktif'], true)) {
-        $status = 'aktif';
-    }
-
-    $birthDate = null;
-    if ($birthDateRaw !== '') {
-        $birthDateObject = DateTime::createFromFormat('Y-m-d', $birthDateRaw);
-        $birthDateErrors = DateTime::getLastErrors();
-        if (!$birthDateObject || ($birthDateErrors['warning_count'] ?? 0) > 0 || ($birthDateErrors['error_count'] ?? 0) > 0) {
-            return Response::json([
-                'success' => false,
-                'message' => 'Tanggal lahir tidak valid',
-            ], 422);
-        }
-        $birthDate = $birthDateObject->format('Y-m-d');
-    }
-
-    $joinedAt = null;
-    if ($joinedAtRaw !== '') {
-        $joinedAtObject = DateTime::createFromFormat('Y-m-d', $joinedAtRaw);
-        $joinedAtErrors = DateTime::getLastErrors();
-        if ($joinedAtObject && ($joinedAtErrors['warning_count'] ?? 0) === 0 && ($joinedAtErrors['error_count'] ?? 0) === 0) {
-            $joinedAt = $joinedAtObject->format('Y-m-d');
-        }
-    }
-
-    if ($email !== '' && !filter_var($email, FILTER_VALIDATE_EMAIL)) {
-        return Response::json([
-            'success' => false,
-            'message' => 'Email tidak valid',
+            'message' => MemberValidation::firstError($validation['errors']),
+            'errors' => $validation['errors'],
         ], 422);
     }
 
@@ -2679,16 +2635,17 @@ $router->put('/api/members', function (App\Http\Request $request, array $context
             ], 404);
         }
 
-        if ($nik !== '') {
+        if ($validation['data']['nik'] !== null) {
             $nikStatement = $pdo->prepare('SELECT id FROM members WHERE nik = :nik AND id <> :id LIMIT 1');
             $nikStatement->execute([
-                'nik' => $nik,
+                'nik' => $validation['data']['nik'],
                 'id' => $id,
             ]);
             if ($nikStatement->fetch(PDO::FETCH_ASSOC)) {
                 return Response::json([
                     'success' => false,
-                    'message' => 'NIK sudah digunakan anggota lain',
+                    'message' => 'NIK sudah terdaftar.',
+                    'errors' => ['nik' => 'NIK sudah terdaftar.'],
                 ], 422);
             }
         }
@@ -2711,16 +2668,16 @@ $router->put('/api/members', function (App\Http\Request $request, array $context
         );
         $statement->execute([
             'id' => $id,
-            'full_name' => $fullName,
-            'nik' => $nik !== '' ? $nik : null,
-            'birth_date' => $birthDate,
-            'gender' => $gender,
-            'address' => $address !== '' ? $address : null,
-            'city' => $city !== '' ? $city : null,
-            'phone' => $phone !== '' ? $phone : null,
-            'email' => $email !== '' ? $email : null,
-            'status' => $status,
-            'joined_at' => $joinedAt ?? $existing['joined_at'],
+            'full_name' => $validation['data']['full_name'],
+            'nik' => $validation['data']['nik'],
+            'birth_date' => $validation['data']['birth_date'],
+            'gender' => $validation['data']['gender'],
+            'address' => $validation['data']['address'],
+            'city' => $validation['data']['city'],
+            'phone' => $validation['data']['phone'],
+            'email' => $validation['data']['email'],
+            'status' => $validation['data']['status'],
+            'joined_at' => $existing['joined_at'],
             'updated_by' => $identity['user_id'],
         ]);
 
@@ -2732,6 +2689,14 @@ $router->put('/api/members', function (App\Http\Request $request, array $context
             'data' => $updated ? $formatMember($updated) : null,
         ]);
     } catch (Throwable $throwable) {
+        if ($isDuplicateMemberNikException($throwable)) {
+            return Response::json([
+                'success' => false,
+                'message' => 'NIK sudah terdaftar.',
+                'errors' => ['nik' => 'NIK sudah terdaftar.'],
+            ], 422);
+        }
+
         return Response::json([
             'success' => false,
             'message' => 'Gagal memperbarui anggota',
@@ -2791,61 +2756,28 @@ $router->delete('/api/members', function (App\Http\Request $request, array $cont
     }
 });
 
-$router->post('/api/books', function (App\Http\Request $request, array $context) use ($requireAdmin, $getNextBookCode, $getBookById, $formatBook) {
+$router->post('/api/books', function (App\Http\Request $request, array $context) use ($requireAdmin, $getNextBookCode, $getBookById, $formatBook, $isDuplicateIsbnException) {
     $identity = $requireAdmin($request, $context);
     if (is_array($identity) && array_key_exists('status', $identity)) {
         return $identity;
     }
 
     $payload = $request->json();
-    $categoryId = (int) ($payload['category_id'] ?? 0);
-    $title = trim((string) ($payload['title'] ?? ''));
-    $author = trim((string) ($payload['author'] ?? ''));
-    $publisher = trim((string) ($payload['publisher'] ?? ''));
-    $publicationYearRaw = trim((string) ($payload['publication_year'] ?? ''));
-    $isbn = trim((string) ($payload['isbn'] ?? ''));
-    $edition = trim((string) ($payload['edition'] ?? ''));
-    $language = trim((string) ($payload['language'] ?? ''));
-    $shelfLocation = trim((string) ($payload['shelf_location'] ?? ''));
-    $description = trim((string) ($payload['description'] ?? ''));
-    $stockTotal = (int) ($payload['stock_total'] ?? 0);
-    $stockAvailable = $payload['stock_available'] === null || $payload['stock_available'] === ''
-        ? $stockTotal
-        : (int) $payload['stock_available'];
-    $status = trim((string) ($payload['status'] ?? 'aktif'));
-
-    if ($categoryId <= 0 || $title === '' || $author === '' || $publisher === '') {
+    $validation = BookValidation::validateBookData($payload);
+    if (!$validation['valid']) {
         return Response::json([
             'success' => false,
-            'message' => 'Kategori, judul, penulis, dan penerbit wajib diisi',
+            'message' => BookValidation::firstError($validation['errors']),
+            'errors' => $validation['errors'],
         ], 422);
     }
 
-    if ($stockTotal < 0) {
-        return Response::json([
-            'success' => false,
-            'message' => 'Stok total tidak valid',
-        ], 422);
-    }
-
-    if ($stockAvailable < 0) {
-        $stockAvailable = 0;
-    }
-
-    if ($stockAvailable > $stockTotal) {
-        $stockAvailable = $stockTotal;
-    }
-
-    if (!in_array($status, ['aktif', 'nonaktif'], true)) {
-        $status = 'aktif';
-    }
-
-    $publicationYear = $publicationYearRaw !== '' ? (int) $publicationYearRaw : null;
+    $bookData = $validation['data'];
 
     try {
         $pdo = Database::connection($context['database']);
         $categoryStatement = $pdo->prepare('SELECT id, status FROM categories WHERE id = :id LIMIT 1');
-        $categoryStatement->execute(['id' => $categoryId]);
+        $categoryStatement->execute(['id' => $bookData['category_id']]);
         $category = $categoryStatement->fetch(PDO::FETCH_ASSOC);
         if (!$category) {
             return Response::json([
@@ -2858,6 +2790,18 @@ $router->post('/api/books', function (App\Http\Request $request, array $context)
                 'success' => false,
                 'message' => 'Kategori nonaktif tidak bisa dipakai untuk buku baru',
             ], 422);
+        }
+
+        if ($bookData['isbn'] !== null) {
+            $isbnStatement = $pdo->prepare('SELECT id FROM books WHERE isbn = :isbn LIMIT 1');
+            $isbnStatement->execute(['isbn' => $bookData['isbn']]);
+            if ($isbnStatement->fetch(PDO::FETCH_ASSOC)) {
+                return Response::json([
+                    'success' => false,
+                    'message' => 'ISBN sudah digunakan oleh buku lain.',
+                    'errors' => ['isbn' => 'ISBN sudah digunakan oleh buku lain.'],
+                ], 422);
+            }
         }
 
         $code = $getNextBookCode($pdo);
@@ -2874,19 +2818,19 @@ $router->post('/api/books', function (App\Http\Request $request, array $context)
         );
         $statement->execute([
             'code' => $code,
-            'category_id' => $categoryId,
-            'title' => $title,
-            'author' => $author,
-            'publisher' => $publisher,
-            'publication_year' => $publicationYear,
-            'isbn' => $isbn !== '' ? $isbn : null,
-            'edition' => $edition !== '' ? $edition : null,
-            'language' => $language !== '' ? $language : null,
-            'shelf_location' => $shelfLocation !== '' ? $shelfLocation : null,
-            'description' => $description !== '' ? $description : null,
-            'stock_total' => $stockTotal,
-            'stock_available' => $stockAvailable,
-            'status' => $status,
+            'category_id' => $bookData['category_id'],
+            'title' => $bookData['title'],
+            'author' => $bookData['author'],
+            'publisher' => $bookData['publisher'],
+            'publication_year' => $bookData['publication_year'],
+            'isbn' => $bookData['isbn'],
+            'edition' => $bookData['edition'],
+            'language' => $bookData['language'],
+            'shelf_location' => $bookData['shelf_location'],
+            'description' => $bookData['description'],
+            'stock_total' => $bookData['stock_total'],
+            'stock_available' => $bookData['stock_available'],
+            'status' => $bookData['status'],
             'created_by' => $identity['user_id'],
             'updated_by' => $identity['user_id'],
         ]);
@@ -2899,6 +2843,14 @@ $router->post('/api/books', function (App\Http\Request $request, array $context)
             'data' => $created ? $formatBook($created) : null,
         ], 201);
     } catch (Throwable $throwable) {
+        if ($isDuplicateIsbnException($throwable)) {
+            return Response::json([
+                'success' => false,
+                'message' => 'ISBN sudah digunakan oleh buku lain.',
+                'errors' => ['isbn' => 'ISBN sudah digunakan oleh buku lain.'],
+            ], 422);
+        }
+
         return Response::json([
             'success' => false,
             'message' => 'Gagal menambahkan buku',
@@ -2907,7 +2859,7 @@ $router->post('/api/books', function (App\Http\Request $request, array $context)
     }
 });
 
-$router->put('/api/books', function (App\Http\Request $request, array $context) use ($requireAdmin, $getBookById, $formatBook) {
+$router->put('/api/books', function (App\Http\Request $request, array $context) use ($requireAdmin, $getBookById, $formatBook, $isDuplicateIsbnException) {
     $identity = $requireAdmin($request, $context);
     if (is_array($identity) && array_key_exists('status', $identity)) {
         return $identity;
@@ -2915,54 +2867,28 @@ $router->put('/api/books', function (App\Http\Request $request, array $context) 
 
     $payload = $request->json();
     $id = (int) ($payload['id'] ?? 0);
-    $categoryId = (int) ($payload['category_id'] ?? 0);
-    $title = trim((string) ($payload['title'] ?? ''));
-    $author = trim((string) ($payload['author'] ?? ''));
-    $publisher = trim((string) ($payload['publisher'] ?? ''));
-    $publicationYearRaw = trim((string) ($payload['publication_year'] ?? ''));
-    $isbn = trim((string) ($payload['isbn'] ?? ''));
-    $edition = trim((string) ($payload['edition'] ?? ''));
-    $language = trim((string) ($payload['language'] ?? ''));
-    $shelfLocation = trim((string) ($payload['shelf_location'] ?? ''));
-    $description = trim((string) ($payload['description'] ?? ''));
-    $stockTotal = (int) ($payload['stock_total'] ?? 0);
-    $stockAvailable = $payload['stock_available'] === null || $payload['stock_available'] === ''
-        ? $stockTotal
-        : (int) $payload['stock_available'];
-    $status = trim((string) ($payload['status'] ?? 'aktif'));
-
-    if ($id <= 0 || $categoryId <= 0 || $title === '' || $author === '' || $publisher === '') {
+    if ($id <= 0) {
         return Response::json([
             'success' => false,
-            'message' => 'ID, kategori, judul, penulis, dan penerbit wajib diisi',
+            'message' => 'ID buku tidak valid',
         ], 422);
     }
 
-    if ($stockTotal < 0) {
+    $validation = BookValidation::validateBookData($payload);
+    if (!$validation['valid']) {
         return Response::json([
             'success' => false,
-            'message' => 'Stok total tidak valid',
+            'message' => BookValidation::firstError($validation['errors']),
+            'errors' => $validation['errors'],
         ], 422);
     }
 
-    if ($stockAvailable < 0) {
-        $stockAvailable = 0;
-    }
-
-    if ($stockAvailable > $stockTotal) {
-        $stockAvailable = $stockTotal;
-    }
-
-    if (!in_array($status, ['aktif', 'nonaktif'], true)) {
-        $status = 'aktif';
-    }
-
-    $publicationYear = $publicationYearRaw !== '' ? (int) $publicationYearRaw : null;
+    $bookData = $validation['data'];
 
     try {
         $pdo = Database::connection($context['database']);
         $categoryStatement = $pdo->prepare('SELECT id, status FROM categories WHERE id = :id LIMIT 1');
-        $categoryStatement->execute(['id' => $categoryId]);
+        $categoryStatement->execute(['id' => $bookData['category_id']]);
         $category = $categoryStatement->fetch(PDO::FETCH_ASSOC);
         if (!$category) {
             return Response::json([
@@ -2975,6 +2901,21 @@ $router->put('/api/books', function (App\Http\Request $request, array $context) 
                 'success' => false,
                 'message' => 'Kategori nonaktif tidak bisa dipakai untuk buku',
             ], 422);
+        }
+
+        if ($bookData['isbn'] !== null) {
+            $isbnStatement = $pdo->prepare('SELECT id FROM books WHERE isbn = :isbn AND id <> :id LIMIT 1');
+            $isbnStatement->execute([
+                'isbn' => $bookData['isbn'],
+                'id' => $id,
+            ]);
+            if ($isbnStatement->fetch(PDO::FETCH_ASSOC)) {
+                return Response::json([
+                    'success' => false,
+                    'message' => 'ISBN sudah digunakan oleh buku lain.',
+                    'errors' => ['isbn' => 'ISBN sudah digunakan oleh buku lain.'],
+                ], 422);
+            }
         }
 
         $statement = $pdo->prepare(
@@ -2998,19 +2939,19 @@ $router->put('/api/books', function (App\Http\Request $request, array $context) 
         );
         $statement->execute([
             'id' => $id,
-            'category_id' => $categoryId,
-            'title' => $title,
-            'author' => $author,
-            'publisher' => $publisher,
-            'publication_year' => $publicationYear,
-            'isbn' => $isbn !== '' ? $isbn : null,
-            'edition' => $edition !== '' ? $edition : null,
-            'language' => $language !== '' ? $language : null,
-            'shelf_location' => $shelfLocation !== '' ? $shelfLocation : null,
-            'description' => $description !== '' ? $description : null,
-            'stock_total' => $stockTotal,
-            'stock_available' => $stockAvailable,
-            'status' => $status,
+            'category_id' => $bookData['category_id'],
+            'title' => $bookData['title'],
+            'author' => $bookData['author'],
+            'publisher' => $bookData['publisher'],
+            'publication_year' => $bookData['publication_year'],
+            'isbn' => $bookData['isbn'],
+            'edition' => $bookData['edition'],
+            'language' => $bookData['language'],
+            'shelf_location' => $bookData['shelf_location'],
+            'description' => $bookData['description'],
+            'stock_total' => $bookData['stock_total'],
+            'stock_available' => $bookData['stock_available'],
+            'status' => $bookData['status'],
             'updated_by' => $identity['user_id'],
         ]);
 
@@ -3029,6 +2970,14 @@ $router->put('/api/books', function (App\Http\Request $request, array $context) 
             'data' => $formatBook($updated),
         ]);
     } catch (Throwable $throwable) {
+        if ($isDuplicateIsbnException($throwable)) {
+            return Response::json([
+                'success' => false,
+                'message' => 'ISBN sudah digunakan oleh buku lain.',
+                'errors' => ['isbn' => 'ISBN sudah digunakan oleh buku lain.'],
+            ], 422);
+        }
+
         return Response::json([
             'success' => false,
             'message' => 'Gagal memperbarui buku',
@@ -3056,17 +3005,10 @@ $router->delete('/api/books', function (App\Http\Request $request, array $contex
     try {
         $pdo = Database::connection($context['database']);
         $statement = $pdo->prepare(
-            'UPDATE books
-             SET status = :status,
-                 updated_by = :updated_by,
-                 updated_at = CURRENT_TIMESTAMP
+            'DELETE FROM books
              WHERE id = :id'
         );
-        $statement->execute([
-            'id' => $id,
-            'status' => 'nonaktif',
-            'updated_by' => $identity['user_id'],
-        ]);
+        $statement->execute(['id' => $id]);
 
         if ($statement->rowCount() === 0) {
             return Response::json([
@@ -3077,9 +3019,18 @@ $router->delete('/api/books', function (App\Http\Request $request, array $contex
 
         return Response::json([
             'success' => true,
-            'message' => 'Buku berhasil dinonaktifkan',
+            'message' => 'Buku berhasil dihapus',
         ]);
     } catch (Throwable $throwable) {
+        $sqlState = $throwable instanceof PDOException ? (string) $throwable->getCode() : '';
+        if ($sqlState === '23000') {
+            return Response::json([
+                'success' => false,
+                'message' => 'Buku masih dipakai pada riwayat peminjaman, jadi tidak bisa dihapus.',
+                'error' => $throwable->getMessage(),
+            ], 409);
+        }
+
         return Response::json([
             'success' => false,
             'message' => 'Gagal menghapus buku',

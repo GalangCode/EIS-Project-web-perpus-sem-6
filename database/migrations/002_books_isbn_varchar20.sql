@@ -1,0 +1,2 @@
+ALTER TABLE `books`
+  MODIFY `isbn` VARCHAR(20) NULL;

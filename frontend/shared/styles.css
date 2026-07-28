@@ -388,6 +388,10 @@ button, input { font: inherit; }
   font-weight: 700;
   letter-spacing: 0.3px;
 }
+.btn:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
 .search {
   width: 256px;
   height: 40px;
@@ -539,6 +543,47 @@ button, input { font: inherit; }
 .field {
   width: 100%;
 }
+.book-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.book-field .field {
+  margin: 0;
+}
+.member-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.member-field .field {
+  margin: 0;
+}
+.field-error {
+  margin: 0;
+  min-height: 16px;
+  color: var(--red);
+  font-size: 12px;
+  line-height: 16px;
+}
+.field-error[hidden] {
+  display: none;
+}
+.field.has-error .input,
+.field.has-error input.input,
+.field.has-error textarea.input,
+.field.has-error select.input,
+.member-field.has-error .input,
+.member-field.has-error input.input,
+.member-field.has-error textarea.input,
+.member-field.has-error select.input {
+  border-color: rgba(186, 26, 26, 0.8);
+  box-shadow: 0 0 0 1px rgba(186, 26, 26, 0.12);
+}
+.input.is-invalid {
+  border-color: rgba(186, 26, 26, 0.8);
+  box-shadow: 0 0 0 1px rgba(186, 26, 26, 0.12);
+}
 .input {
   min-height: 48px;
   padding: 0 16px;
@@ -616,6 +661,29 @@ select.input {
   justify-content: flex-end;
   gap: 12px;
   margin-top: 28px;
+}
+.book-toast {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  z-index: 60;
+  min-width: 240px;
+  max-width: min(360px, calc(100vw - 40px));
+  padding: 14px 16px;
+  border-radius: 10px;
+  font-size: 14px;
+  line-height: 20px;
+  box-shadow: 0 16px 32px rgba(0, 0, 0, 0.18);
+}
+.book-toast[data-tone="success"] {
+  background: #e5f6ed;
+  color: var(--green);
+  border: 1px solid rgba(10, 127, 82, 0.18);
+}
+.book-toast[data-tone="error"] {
+  background: #ffe8e8;
+  color: var(--red);
+  border: 1px solid rgba(186, 26, 26, 0.18);
 }
 
 .login-shell {

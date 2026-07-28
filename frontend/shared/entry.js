@@ -8,7 +8,6 @@ const pageModules = {
   category: "../admin/kategori.js",
   books: "../admin/buku-view.js",
   members: "../admin/anggota.js",
-  addMember: "../admin/tambah-anggota.js",
   circulation: "../admin/sirkulasi-view.js",
   addBorrow: "../admin/tambah-peminjaman.js",
   report: "../admin/laporan.js",

@@ -18,7 +18,6 @@ const pageRoles = {
   category: "admin",
   books: "admin",
   members: "admin",
-  addMember: "admin",
   circulation: "admin",
   addBorrow: "admin",
   report: "admin",

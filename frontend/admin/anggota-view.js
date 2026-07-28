@@ -1,12 +1,35 @@
 import { apiFetch } from "../shared/api.js";
-import { escapeHtml, field, renderDocument, renderLabelHtml, stat } from "../shared/components.js?v=20260727";
+import { escapeHtml, renderDocument, stat } from "../shared/components.js?v=20260728";
 import { renderAdminShell } from "../shared/layout-admin.js";
+import {
+  attachDateMask,
+  clearMemberErrors,
+  attachDigitOnlyGuard,
+  focusFirstMemberError,
+  memberCodeField,
+  memberField,
+  memberSelectField,
+  readMemberForm,
+  setMemberErrors,
+  setMemberFieldError,
+  MEMBER_GENDER_OPTIONS,
+  MEMBER_STATUS_OPTIONS,
+} from "./member-form.js";
+import {
+  calculateAge,
+  formatBirthDateDisplay,
+  sanitizeInput,
+  validateMemberData,
+  firstMemberError,
+  normalizeGenderValue,
+  normalizeStatusValue,
+} from "./member-validation.js?v=20260728";
 
 const state = {
   items: [],
   summary: { total: 0, active: 0, inactive: 0, new_this_month: 0 },
   query: "",
-  filters: { status: "all", gender: "all" },
+  filters: { status: "all", gender: "all", age_range: "all" },
   page: 1,
   pageSize: 5,
   loading: true,
@@ -15,11 +38,6 @@ const state = {
 
 let searchTimer = null;
 
-const genderOptions = [
-  { value: "laki-laki", label: "Laki-laki" },
-  { value: "perempuan", label: "Perempuan" },
-];
-
 function formatDate(value) {
   if (!value) return "-";
   const date = new Date(`${value}T00:00:00`);
@@ -27,27 +45,19 @@ function formatDate(value) {
   return date.toLocaleDateString("id-ID", { day: "2-digit", month: "short", year: "numeric" });
 }
 
-function calculateAge(value) {
-  if (!value) return "-";
-  const birth = new Date(`${value}T00:00:00`);
-  if (Number.isNaN(birth.getTime())) return "-";
-  const today = new Date();
-  let age = today.getFullYear() - birth.getFullYear();
-  const monthDiff = today.getMonth() - birth.getMonth();
-  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
-    age--;
-  }
-  return String(Math.max(age, 0));
+function ageLabel(value) {
+  const age = calculateAge(value);
+  return age === null ? "-" : String(age);
 }
 
 function genderLabel(value) {
-  if (value === "laki-laki") return "Laki-laki";
-  if (value === "perempuan") return "Perempuan";
-  return "-";
+  const normalized = normalizeGenderValue(value);
+  return normalized || "-";
 }
 
 function statusPill(status) {
-  return status === "aktif" ? '<span class="pill green">Aktif</span>' : '<span class="pill red">Nonaktif</span>';
+  const normalized = normalizeStatusValue(status);
+  return normalized === "Aktif" ? '<span class="pill green">Aktif</span>' : '<span class="pill red">Nonaktif</span>';
 }
 
 function filteredItems() {
@@ -79,15 +89,25 @@ function buildFilterLayer() {
           <label>STATUS</label>
           <select class="input" name="status" data-filter-status>
             <option value="all">Semua status</option>
-            <option value="aktif">Aktif</option>
-            <option value="nonaktif">Nonaktif</option>
+            ${MEMBER_STATUS_OPTIONS.map((option) => `<option value="${option.value}">${option.label}</option>`).join("")}
           </select>
         </div>
         <div class="field">
           <label>JENIS KELAMIN</label>
           <select class="input" name="gender" data-filter-gender>
             <option value="all">Semua jenis kelamin</option>
-            ${genderOptions.map((option) => `<option value="${option.value}">${option.label}</option>`).join("")}
+            ${MEMBER_GENDER_OPTIONS.map((option) => `<option value="${option.value}">${option.label}</option>`).join("")}
+          </select>
+        </div>
+        <div class="field">
+          <label>RENTANG UMUR</label>
+          <select class="input" name="age_range" data-filter-age>
+            <option value="all">Semua umur</option>
+            <option value="0-17">0-17</option>
+            <option value="18-25">18-25</option>
+            <option value="26-40">26-40</option>
+            <option value="41-60">41-60</option>
+            <option value="60+">60+</option>
           </select>
         </div>
         <div class="form-actions">
@@ -112,9 +132,9 @@ function buildTable(items) {
         <td><strong>${escapeHtml(item.member_code)}</strong></td>
         <td><strong>${escapeHtml(item.full_name)}</strong></td>
         <td>${escapeHtml(formatDate(item.birth_date))}</td>
-        <td>${escapeHtml(calculateAge(item.birth_date))}</td>
+        <td>${escapeHtml(ageLabel(item.birth_date))}</td>
         <td>${escapeHtml(genderLabel(item.gender))}</td>
-        <td>${escapeHtml(item.city || item.address || "-")}</td>
+        <td>${escapeHtml(item.phone || "-")}</td>
         <td>${statusPill(item.status)}</td>
         <td><div class="actions">
           <button class="row-btn" data-action="edit" data-id="${item.id}" aria-label="Edit anggota">✎</button>
@@ -127,12 +147,12 @@ function buildTable(items) {
   return `<table class="data-table">
     <thead><tr>
       <th style="width:64px">NO</th>
-      <th style="width:110px">ID ANGGOTA</th>
+      <th style="width:110px">KODE</th>
       <th style="width:180px">NAMA LENGKAP</th>
       <th style="width:120px">TANGGAL LAHIR</th>
       <th style="width:60px">USIA</th>
       <th style="width:120px">JENIS KELAMIN</th>
-      <th style="width:180px">ALAMAT SINGKAT</th>
+      <th style="width:140px">NOMOR TELEPON</th>
       <th style="width:96px">STATUS</th>
       <th style="width:104px">AKSI</th>
     </tr></thead>
@@ -161,10 +181,9 @@ function buildPagination(total) {
 
 function buildMemberQuery() {
   const params = new URLSearchParams();
-  const query = state.query.trim();
 
-  if (query !== "") {
-    params.set("q", query);
+  if (state.query.trim() !== "") {
+    params.set("q", sanitizeInput(state.query));
   }
 
   if (state.filters.status !== "all") {
@@ -175,67 +194,365 @@ function buildMemberQuery() {
     params.set("gender", state.filters.gender);
   }
 
+  if (state.filters.age_range !== "all") {
+    params.set("age_range", state.filters.age_range);
+  }
+
   return params.toString();
 }
 
-function selectField(label, name, value, options, opts = {}) {
-  return `<div class="field ${opts.full ? "full" : ""}">
-    <label>${renderLabelHtml(label)}</label>
-    <select class="input" name="${escapeHtml(name)}" ${opts.required ? "required" : ""}>
-      ${options
-        .map((option) => `<option value="${escapeHtml(option.value)}"${option.value === value ? " selected" : ""}>${escapeHtml(option.label)}</option>`)
-        .join("")}
-    </select>
-  </div>`;
-}
+function buildMemberModal(member = null) {
+  const isEdit = Boolean(member);
+  const submitLabel = isEdit ? "SIMPAN PERUBAHAN" : "SIMPAN ANGGOTA";
+  const codeValue = isEdit ? member?.member_code || "" : "Otomatis saat disimpan";
 
-function memberModal(member = null, mode = member ? "edit" : "create") {
-  const isEdit = mode === "edit";
-  const title = isEdit ? "Edit Anggota" : "Daftar Anggota Baru";
-  const subtitle = isEdit
-    ? "Perbarui data anggota yang sudah tersimpan di database."
-    : "Lengkapi data diri calon anggota perpustakaan.";
-  const submitLabel = isEdit ? "Simpan Perubahan" : "Simpan Data";
-  const codeField = isEdit
-    ? `<div class="field full">
-        <label>KODE ANGGOTA</label>
-        <input class="input" type="text" value="${escapeHtml(member?.member_code || "Otomatis saat disimpan")}" readonly />
-      </div>`
-    : '<input type="hidden" name="member_code" value="" />';
-  const statusField = isEdit
-    ? `${selectField("STATUS", "status", member?.status || "aktif", [
-        { value: "aktif", label: "Aktif" },
-        { value: "nonaktif", label: "Nonaktif" },
-      ], { full: true })}`
-    : '<input type="hidden" name="status" value="aktif" />';
   return `<div class="modal-layer">
     <div class="modal modal-xl">
       <div class="modal-head">
-        <h3>${title}</h3>
+        <h3>${isEdit ? "Edit Anggota" : "Daftar Anggota Baru"}</h3>
         <button class="modal-close" type="button">×</button>
       </div>
       <form class="modal-body" data-member-form style="gap:16px">
-        <input type="hidden" name="id" value="${escapeHtml(member?.id || "")}" />
-        <p style="margin:0;color:#6e7979;font-size:12px;line-height:16px">${subtitle}</p>
+        <input type="hidden" name="id" value="${escapeHtml(member?.id || 0)}" />
+        <p style="margin:0;color:#6e7979;font-size:12px;line-height:16px">
+          ${isEdit ? "Perbarui data anggota yang tersimpan di database." : "Data anggota akan dibuat otomatis oleh backend."}
+        </p>
         <div class="login-alert" data-member-alert hidden></div>
-        ${codeField}
-        ${field("NAMA LENGKAP", member?.full_name || "", { name: "full_name", placeholder: "Masukkan nama sesuai KTP", full: true })}
+        ${memberCodeField(codeValue)}
+        ${memberField("full_name", "NAMA LENGKAP *", member?.full_name || "", {
+          placeholder: "Masukkan nama sesuai KTP",
+          full: true,
+          attrs: { required: true, maxlength: 100, autocomplete: "off" },
+        })}
         <div class="split" style="gap:16px">
-          ${field("NIK (NOMOR INDUK KEPENDUDUKAN)", member?.nik || "", { name: "nik", placeholder: "Masukkan 16 digit NIK" })}
-          ${field("TANGGAL LAHIR", member?.birth_date || "", { name: "birth_date", type: "date" })}
+          ${memberField("nik", "NIK *", member?.nik || "", {
+            placeholder: "Masukkan 16 digit NIK",
+            attrs: { required: true, maxlength: 16, inputmode: "numeric", autocomplete: "off" },
+          })}
+          ${memberField("birth_date", "TANGGAL LAHIR *", formatBirthDateDisplay(member?.birth_date || ""), {
+            placeholder: "dd-mm-yyyy",
+            attrs: { required: true, type: "text", maxlength: 10, inputmode: "numeric", autocomplete: "off", title: "Format tanggal lahir: dd-mm-yyyy" },
+          })}
         </div>
+        <p style="margin:-8px 0 0;color:#6e7979;font-size:12px;line-height:16px">Gunakan format <strong>dd-mm-yyyy</strong>. Angka akan otomatis dipisahkan dengan tanda hubung.</p>
         <div class="split" style="gap:16px">
-          ${selectField("JENIS KELAMIN *", "gender", member?.gender || "laki-laki", genderOptions, { required: true })}
-          ${field("NOMOR TELEPON", member?.phone || "", { name: "phone", placeholder: "Masukkan nomor telepon aktif" })}
+          ${memberSelectField("gender", "JENIS KELAMIN *", member?.gender || "Laki-laki", MEMBER_GENDER_OPTIONS, { required: true })}
+          ${memberField("phone", "NOMOR TELEPON *", member?.phone || "", {
+            placeholder: "081234567890",
+            attrs: { required: true, maxlength: 15, inputmode: "numeric", autocomplete: "off" },
+          })}
         </div>
-        ${field("ALAMAT LENGKAP", member?.address || "", { name: "address", textarea: true, full: true, placeholder: "Masukkan alamat domisili saat ini...", rows: 4 })}
-        ${statusField}
+        ${memberField("address", "ALAMAT *", member?.address || "", {
+          textarea: true,
+          rows: 4,
+          full: true,
+          placeholder: "Masukkan alamat lengkap",
+          attrs: { required: true, maxlength: 255, autocomplete: "off" },
+        })}
+        ${memberSelectField("status", "STATUS *", member?.status || "Aktif", MEMBER_STATUS_OPTIONS, { required: true, full: true })}
         <div class="form-actions">
-          <button class="btn primary" type="submit">${submitLabel}</button>
+          <button class="btn primary" type="submit" data-member-submit>${submitLabel}</button>
         </div>
       </form>
     </div>
   </div>`;
+}
+
+function createMemberToast(message, tone = "success") {
+  const toast = document.createElement("div");
+  toast.className = "book-toast";
+  toast.dataset.tone = tone;
+  toast.textContent = message;
+  document.body.appendChild(toast);
+  window.setTimeout(() => toast.remove(), 2800);
+}
+
+function setAlertBox(alertBox, message = "", tone = "error") {
+  if (!alertBox) return;
+  if (message) {
+    alertBox.dataset.type = tone;
+    alertBox.textContent = message;
+    alertBox.hidden = false;
+  } else {
+    alertBox.hidden = true;
+    alertBox.textContent = "";
+    delete alertBox.dataset.type;
+  }
+}
+
+function bindTableHandlers() {
+  document.querySelectorAll("[data-action='edit']").forEach((button) => {
+    button.addEventListener("click", () => {
+      const id = Number(button.getAttribute("data-id") || 0);
+      const member = state.items.find((item) => item.id === id);
+      if (member) openMemberModal(member);
+    });
+  });
+
+  document.querySelectorAll("[data-action='delete']").forEach((button) => {
+    button.addEventListener("click", () => {
+      const id = Number(button.getAttribute("data-id") || 0);
+      if (id > 0) deleteMember(id);
+    });
+  });
+
+  document.querySelectorAll(".page-btn[data-page]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const target = button.getAttribute("data-page");
+      const totalPages = Math.max(1, Math.ceil(filteredItems().length / state.pageSize));
+      if (target === "prev") {
+        state.page = Math.max(1, state.page - 1);
+      } else if (target === "next") {
+        state.page = Math.min(totalPages, state.page + 1);
+      } else {
+        state.page = Math.max(1, Math.min(totalPages, Number(target)));
+      }
+      updateMemberView();
+    });
+  });
+}
+
+function syncMemberField(form, name) {
+  const raw = readMemberForm(form);
+  const sanitized = { ...raw };
+
+  if (name === "full_name") {
+    sanitized.full_name = sanitizeInput(raw.full_name);
+    const input = form.querySelector('[name="full_name"]');
+    if (input) input.value = sanitized.full_name;
+  }
+
+  if (name === "nik") {
+    const input = form.querySelector('[name="nik"]');
+    if (input) input.value = sanitizeInput(raw.nik).slice(0, 16);
+  }
+
+  if (name === "phone") {
+    const input = form.querySelector('[name="phone"]');
+    if (input) input.value = sanitizeInput(raw.phone).slice(0, 15);
+  }
+
+  if (name === "address") {
+    sanitized.address = sanitizeInput(raw.address);
+    const input = form.querySelector('[name="address"]');
+    if (input) input.value = sanitized.address;
+  }
+
+  if (name === "birth_date") {
+    const input = form.querySelector('[name="birth_date"]');
+    if (input) {
+      const digits = String(raw.birth_date || "").replace(/\D/g, "").slice(0, 8);
+      let formatted = digits;
+      if (digits.length > 2) {
+        formatted = `${digits.slice(0, 2)}-${digits.slice(2)}`;
+      }
+      if (digits.length > 4) {
+        formatted = `${digits.slice(0, 2)}-${digits.slice(2, 4)}-${digits.slice(4)}`;
+      }
+      input.value = formatted;
+      sanitized.birth_date = formatted;
+    }
+  }
+
+  const validation = validateMemberData(sanitized);
+  const relatedFields = name === "full_name" || name === "nik" || name === "birth_date" || name === "phone" || name === "address" || name === "gender" || name === "status"
+    ? [name]
+    : [name];
+  relatedFields.forEach((fieldName) => setMemberFieldError(form, fieldName, validation.errors?.[fieldName] || ""));
+  return validation;
+}
+
+function openMemberModal(member = null) {
+  if (document.querySelector(".modal-layer")) return;
+  document.body.insertAdjacentHTML("beforeend", buildMemberModal(member));
+
+  const layer = document.querySelector(".modal-layer");
+  const form = layer?.querySelector("[data-member-form]");
+  const closeButton = layer?.querySelector(".modal-close");
+  const alertBox = layer?.querySelector("[data-member-alert]");
+  const submitButton = layer?.querySelector("[data-member-submit]");
+
+  const closeModal = () => {
+    layer?.remove();
+  };
+
+  closeButton?.addEventListener("click", closeModal);
+
+  form?.querySelectorAll("[data-member-input]").forEach((input) => {
+    if (input instanceof HTMLInputElement && (input.name === "nik" || input.name === "phone")) {
+      attachDigitOnlyGuard(input);
+    }
+
+    if (input instanceof HTMLInputElement && input.name === "birth_date") {
+      attachDateMask(input);
+      input.value = formatBirthDateDisplay(input.value);
+    }
+
+    const handleInput = (event) => {
+      const target = event.currentTarget;
+      if (!(target instanceof HTMLInputElement || target instanceof HTMLSelectElement || target instanceof HTMLTextAreaElement)) {
+        return;
+      }
+
+      const validation = syncMemberField(form, target.name);
+      setMemberFieldError(form, target.name, validation.errors?.[target.name] || "");
+    };
+
+    input.addEventListener("input", handleInput);
+    input.addEventListener("change", handleInput);
+    input.addEventListener("blur", handleInput);
+  });
+
+  clearMemberErrors(form);
+  setAlertBox(alertBox, "");
+
+  form?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    if (!alertBox || !submitButton || !form) return;
+
+    const validation = validateMemberData(readMemberForm(form));
+    setMemberErrors(form, validation.errors);
+
+    if (!validation.valid) {
+      setAlertBox(alertBox, firstMemberError(validation.errors), "error");
+      focusFirstMemberError(form, validation.errors);
+      return;
+    }
+
+    const payload = {
+      id: Number(readMemberForm(form).id || 0),
+      ...validation.data,
+    };
+
+    submitButton.disabled = true;
+    submitButton.setAttribute("aria-busy", "true");
+    submitButton.textContent = "Menyimpan...";
+
+    try {
+      await apiFetch("/api/members", {
+        method: member ? "PUT" : "POST",
+        body: JSON.stringify(payload),
+      });
+      createMemberToast(member ? "Anggota berhasil diperbarui." : "Anggota berhasil ditambahkan.", "success");
+      closeModal();
+      await loadMembers();
+    } catch (error) {
+      const responseErrors = error?.payload?.errors;
+      if (responseErrors) {
+        setMemberErrors(form, responseErrors);
+        focusFirstMemberError(form, responseErrors);
+      }
+
+      const message = error?.payload?.message || error?.message || "Gagal menyimpan anggota.";
+      setAlertBox(alertBox, message, "error");
+      createMemberToast(message, "error");
+    } finally {
+      submitButton.disabled = false;
+      submitButton.removeAttribute("aria-busy");
+      submitButton.textContent = member ? "SIMPAN PERUBAHAN" : "SIMPAN ANGGOTA";
+    }
+  });
+}
+
+function deleteMember(id) {
+  if (!window.confirm("Yakin ingin menonaktifkan anggota ini?")) return;
+
+  apiFetch("/api/members", {
+    method: "DELETE",
+    body: JSON.stringify({ id }),
+  })
+    .then(async () => {
+      createMemberToast("Anggota berhasil dinonaktifkan.", "success");
+      await loadMembers();
+    })
+    .catch((error) => {
+      const message = error?.payload?.message || error?.message || "Gagal menonaktifkan anggota.";
+      createMemberToast(message, "error");
+      window.alert(message);
+    });
+}
+
+function bindHandlers() {
+  document.getElementById("open-member-create")?.addEventListener("click", () => openMemberModal());
+
+  document.getElementById("open-member-filter")?.addEventListener("click", () => {
+    const filterLayer = document.getElementById("member-filter-layer");
+    const filterStatus = filterLayer?.querySelector("[data-filter-status]");
+    const filterGender = filterLayer?.querySelector("[data-filter-gender]");
+    const filterAge = filterLayer?.querySelector("[data-filter-age]");
+    if (!filterLayer) return;
+
+    filterLayer.hidden = !filterLayer.hidden;
+    if (filterStatus) filterStatus.value = state.filters.status;
+    if (filterGender) filterGender.value = state.filters.gender;
+    if (filterAge) filterAge.value = state.filters.age_range;
+  });
+
+  document.getElementById("member-search")?.addEventListener("input", (event) => {
+    state.query = String(event.target.value || "");
+    state.page = 1;
+    if (searchTimer) {
+      window.clearTimeout(searchTimer);
+    }
+    searchTimer = window.setTimeout(() => {
+      loadMembers();
+    }, 250);
+  });
+
+  const filterLayer = document.getElementById("member-filter-layer");
+  const filterForm = filterLayer?.querySelector("[data-filter-form]");
+  const filterClose = filterLayer?.querySelector("[data-filter-close]");
+  const filterReset = filterLayer?.querySelector("[data-filter-reset]");
+
+  const closeFilter = () => {
+    if (!filterLayer) return;
+    filterLayer.hidden = true;
+  };
+
+  filterClose?.addEventListener("click", closeFilter);
+
+  filterReset?.addEventListener("click", () => {
+    state.filters.status = "all";
+    state.filters.gender = "all";
+    state.filters.age_range = "all";
+    if (filterForm) {
+      filterForm.reset();
+      const statusSelect = filterForm.querySelector("[data-filter-status]");
+      const genderSelect = filterForm.querySelector("[data-filter-gender]");
+      const ageSelect = filterForm.querySelector("[data-filter-age]");
+      if (statusSelect) statusSelect.value = "all";
+      if (genderSelect) genderSelect.value = "all";
+      if (ageSelect) ageSelect.value = "all";
+    }
+    state.page = 1;
+    loadMembers();
+  });
+
+  filterForm?.addEventListener("submit", (event) => {
+    event.preventDefault();
+    const formData = new FormData(filterForm);
+    state.filters.status = String(formData.get("status") || "all");
+    state.filters.gender = String(formData.get("gender") || "all");
+    state.filters.age_range = String(formData.get("age_range") || "all");
+    state.page = 1;
+    closeFilter();
+    loadMembers();
+  });
+}
+
+function updateMemberView() {
+  const items = filteredItems();
+  const pageItems = visibleItems(items);
+  const statsWrap = document.getElementById("member-stats");
+  const tableWrap = document.getElementById("member-table-wrap");
+  const paginationWrap = document.getElementById("member-pagination-wrap");
+  const totalBadge = document.querySelector("[data-member-total]");
+
+  if (statsWrap) statsWrap.innerHTML = buildStats();
+  if (tableWrap) tableWrap.innerHTML = buildTable(pageItems);
+  if (paginationWrap) paginationWrap.innerHTML = buildPagination(items.length);
+  if (totalBadge) totalBadge.textContent = `${state.summary.total} TOTAL`;
+  bindTableHandlers();
 }
 
 function renderShell() {
@@ -271,7 +588,7 @@ function renderShell() {
               <button class="btn primary" type="button" id="open-member-create">＋ Tambah Anggota</button>
               <label class="search">
                 <span>⌕</span>
-                <input class="search-field" id="member-search" type="search" placeholder="Cari nama atau ID..." value="${escapeHtml(state.query)}" />
+                <input class="search-field" id="member-search" type="search" placeholder="Cari kode, nama, NIK, atau telepon..." value="${escapeHtml(state.query)}" />
               </label>
               <button class="btn" type="button" id="open-member-filter">Filter</button>
             </div>
@@ -299,197 +616,6 @@ function renderShell() {
   );
 
   bindHandlers();
-  bindTableHandlers();
-}
-
-function openMemberModal(member = null) {
-  if (document.querySelector(".modal-layer")) return;
-  const isEdit = Boolean(member);
-  document.body.insertAdjacentHTML("beforeend", memberModal(member, isEdit ? "edit" : "create"));
-
-  const layer = document.querySelector(".modal-layer");
-  const form = layer?.querySelector("[data-member-form]");
-  const closeButton = layer?.querySelector(".modal-close");
-  const alertBox = layer?.querySelector("[data-member-alert]");
-
-  const closeModal = () => {
-    layer?.remove();
-  };
-
-  closeButton?.addEventListener("click", closeModal);
-
-  form?.addEventListener("submit", async (event) => {
-    event.preventDefault();
-    if (!alertBox) return;
-
-    const data = new FormData(form);
-    const payload = {
-      id: Number(data.get("id") || 0),
-      full_name: String(data.get("full_name") || "").trim(),
-      nik: String(data.get("nik") || "").trim(),
-      birth_date: String(data.get("birth_date") || "").trim(),
-      gender: String(data.get("gender") || "").trim(),
-      address: String(data.get("address") || "").trim(),
-      city: String(data.get("city") || "").trim(),
-      phone: String(data.get("phone") || "").trim(),
-      email: String(data.get("email") || "").trim(),
-      status: String(data.get("status") || "aktif").trim(),
-    };
-
-    if (!payload.full_name || !payload.gender) {
-      alertBox.hidden = false;
-      alertBox.dataset.type = "error";
-      alertBox.textContent = "Nama lengkap dan jenis kelamin wajib diisi.";
-      return;
-    }
-
-    const submitButton = form.querySelector('[type="submit"]');
-    if (submitButton) {
-      submitButton.disabled = true;
-      submitButton.textContent = "Menyimpan...";
-    }
-
-    try {
-      await apiFetch("/api/members", {
-        method: isEdit ? "PUT" : "POST",
-        body: JSON.stringify(payload),
-      });
-      closeModal();
-      await loadMembers();
-    } catch (error) {
-      alertBox.hidden = false;
-      alertBox.dataset.type = "error";
-      alertBox.textContent = error?.payload?.message || error?.message || "Gagal menyimpan anggota.";
-    } finally {
-      if (submitButton) {
-        submitButton.disabled = false;
-        submitButton.textContent = isEdit ? "SIMPAN PERUBAHAN" : "SIMPAN ANGGOTA";
-      }
-    }
-  });
-}
-
-async function deleteMember(id) {
-  if (!window.confirm("Yakin ingin menonaktifkan anggota ini?")) return;
-  try {
-    await apiFetch("/api/members", {
-      method: "DELETE",
-      body: JSON.stringify({ id }),
-    });
-    await loadMembers();
-  } catch (error) {
-    window.alert(error?.payload?.message || error?.message || "Gagal menonaktifkan anggota.");
-  }
-}
-
-function bindHandlers() {
-  document.getElementById("open-member-create")?.addEventListener("click", () => {
-    openMemberModal();
-  });
-
-  document.getElementById("open-member-filter")?.addEventListener("click", () => {
-    const filterLayer = document.getElementById("member-filter-layer");
-    const filterStatus = filterLayer?.querySelector("[data-filter-status]");
-    const filterGender = filterLayer?.querySelector("[data-filter-gender]");
-    if (!filterLayer) return;
-
-    filterLayer.hidden = !filterLayer.hidden;
-    if (filterStatus) filterStatus.value = state.filters.status;
-    if (filterGender) filterGender.value = state.filters.gender;
-  });
-
-  document.getElementById("member-search")?.addEventListener("input", (event) => {
-    state.query = String(event.target.value || "");
-    state.page = 1;
-    if (searchTimer) {
-      window.clearTimeout(searchTimer);
-    }
-    searchTimer = window.setTimeout(() => {
-      loadMembers();
-    }, 250);
-  });
-
-  const filterLayer = document.getElementById("member-filter-layer");
-  const filterForm = filterLayer?.querySelector("[data-filter-form]");
-  const filterClose = filterLayer?.querySelector("[data-filter-close]");
-  const filterReset = filterLayer?.querySelector("[data-filter-reset]");
-
-  const closeFilter = () => {
-    if (!filterLayer) return;
-    filterLayer.hidden = true;
-  };
-
-  filterClose?.addEventListener("click", closeFilter);
-
-  filterReset?.addEventListener("click", () => {
-    state.filters.status = "all";
-    state.filters.gender = "all";
-    if (filterForm) {
-      filterForm.reset();
-      const statusSelect = filterForm.querySelector("[data-filter-status]");
-      const genderSelect = filterForm.querySelector("[data-filter-gender]");
-      if (statusSelect) statusSelect.value = "all";
-      if (genderSelect) genderSelect.value = "all";
-    }
-    state.page = 1;
-    loadMembers();
-  });
-
-  filterForm?.addEventListener("submit", (event) => {
-    event.preventDefault();
-    const formData = new FormData(filterForm);
-    state.filters.status = String(formData.get("status") || "all");
-    state.filters.gender = String(formData.get("gender") || "all");
-    state.page = 1;
-    closeFilter();
-    loadMembers();
-  });
-}
-
-function bindTableHandlers() {
-  document.querySelectorAll("[data-action='edit']").forEach((button) => {
-    button.addEventListener("click", () => {
-      const id = Number(button.getAttribute("data-id") || 0);
-      const member = state.items.find((item) => item.id === id);
-      if (member) openMemberModal(member);
-    });
-  });
-
-  document.querySelectorAll("[data-action='delete']").forEach((button) => {
-    button.addEventListener("click", () => {
-      const id = Number(button.getAttribute("data-id") || 0);
-      if (id > 0) deleteMember(id);
-    });
-  });
-
-  document.querySelectorAll(".page-btn[data-page]").forEach((button) => {
-    button.addEventListener("click", () => {
-      const target = button.getAttribute("data-page");
-      const totalPages = Math.max(1, Math.ceil(filteredItems().length / state.pageSize));
-      if (target === "prev") {
-        state.page = Math.max(1, state.page - 1);
-      } else if (target === "next") {
-        state.page = Math.min(totalPages, state.page + 1);
-      } else {
-        state.page = Math.max(1, Math.min(totalPages, Number(target)));
-      }
-      updateMemberView();
-    });
-  });
-}
-
-function updateMemberView() {
-  const items = filteredItems();
-  const pageItems = visibleItems(items);
-  const statsWrap = document.getElementById("member-stats");
-  const tableWrap = document.getElementById("member-table-wrap");
-  const paginationWrap = document.getElementById("member-pagination-wrap");
-  const totalBadge = document.querySelector("[data-member-total]");
-
-  if (statsWrap) statsWrap.innerHTML = buildStats();
-  if (tableWrap) tableWrap.innerHTML = buildTable(pageItems);
-  if (paginationWrap) paginationWrap.innerHTML = buildPagination(items.length);
-  if (totalBadge) totalBadge.textContent = `${state.summary.total} TOTAL`;
   bindTableHandlers();
 }
 

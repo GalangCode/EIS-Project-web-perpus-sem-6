@@ -64,6 +64,16 @@ export function renderLabelHtml(label) {
   return escapeHtml(label).replaceAll("*", '<span class="required-star">*</span>');
 }
 
+function renderAttributes(attributes = {}) {
+  return Object.entries(attributes)
+    .filter(([, value]) => value !== null && value !== undefined && value !== false)
+    .map(([key, value]) => {
+      if (value === true) return ` ${escapeHtml(key)}`;
+      return ` ${escapeHtml(key)}="${escapeHtml(value)}"`;
+    })
+    .join("");
+}
+
 export function mount(html, title = "EIS Balangan") {
   document.title = `${title} - EIS Balangan`;
   document.getElementById("app").innerHTML = html;
@@ -132,6 +142,7 @@ export function field(label, value = "", opts = {}) {
   const name = opts.name ? ` name="${escapeHtml(opts.name)}"` : "";
   const type = opts.type ? ` type="${escapeHtml(opts.type)}"` : ' type="text"';
   const rows = opts.rows ? ` rows="${Number(opts.rows)}"` : "";
+  const attrs = renderAttributes(opts.attrs || {});
   const options = Array.isArray(opts.options)
     ? opts.options
         .map((option) => {
@@ -142,10 +153,10 @@ export function field(label, value = "", opts = {}) {
     : "";
   const control =
     tag === "textarea"
-      ? `<textarea class="${className}"${name}${rows} placeholder="${placeholder}">${escapeHtml(value)}</textarea>`
+      ? `<textarea class="${className}"${name}${rows}${attrs} placeholder="${placeholder}">${escapeHtml(value)}</textarea>`
       : tag === "select"
-        ? `<select class="${className}"${name}>${options}</select>`
-        : `<input class="${className}"${name}${type} value="${escapeHtml(value)}" placeholder="${placeholder}" />`;
+        ? `<select class="${className}"${name}${attrs}>${options}</select>`
+        : `<input class="${className}"${name}${type}${attrs} value="${escapeHtml(value)}" placeholder="${placeholder}" />`;
   return `<div class="field ${opts.full ? "full" : ""}">
     <label>${renderLabelHtml(label)}</label>
     ${control}

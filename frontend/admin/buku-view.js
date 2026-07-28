@@ -1,6 +1,12 @@
 import { apiFetch } from "../shared/api.js";
-import { escapeHtml, field, renderDocument, renderLabelHtml, stat } from "../shared/components.js?v=20260727";
+import { escapeHtml, field, renderDocument, renderLabelHtml, stat } from "../shared/components.js?v=20260728";
 import { renderAdminShell } from "../shared/layout-admin.js";
+import {
+  firstBookError,
+  normalizeISBN,
+  sanitizeISBNInput,
+  validateBookData,
+} from "./book-validation.js?v=20260728";
 
 const state = {
   items: [],
@@ -13,6 +19,141 @@ const state = {
   loading: true,
   error: "",
 };
+
+function buildSummary(items) {
+  const total = items.length;
+  const active = items.filter((item) => item.status === "aktif").length;
+  const low_stock = items.filter((item) => Number(item.stock_available || 0) > 0 && Number(item.stock_available || 0) <= 3).length;
+  const empty_stock = items.filter((item) => Number(item.stock_available || 0) === 0).length;
+
+  return { total, active, low_stock, empty_stock };
+}
+
+const BOOK_FIELD_NAMES = [
+  "category_id",
+  "title",
+  "author",
+  "publisher",
+  "publication_year",
+  "isbn",
+  "edition",
+  "language",
+  "shelf_location",
+  "status",
+  "stock_total",
+  "stock_available",
+  "description",
+];
+
+function bookField(name, label, value = "", opts = {}) {
+  return `<div class="book-field" data-book-field="${escapeHtml(name)}">
+    ${field(label, value, {
+      ...opts,
+      name,
+      attrs: {
+        ...(opts.attrs || {}),
+        "data-book-input": name,
+      },
+    })}
+    <p class="field-error" data-error-for="${escapeHtml(name)}" hidden></p>
+  </div>`;
+}
+
+function readBookForm(form) {
+  const data = new FormData(form);
+  return {
+    category_id: data.get("category_id"),
+    title: String(data.get("title") || ""),
+    author: String(data.get("author") || ""),
+    publisher: String(data.get("publisher") || ""),
+    publication_year: String(data.get("publication_year") || ""),
+    isbn: normalizeISBN(String(data.get("isbn") || "")),
+    edition: String(data.get("edition") || ""),
+    language: String(data.get("language") || ""),
+    shelf_location: String(data.get("shelf_location") || ""),
+    status: String(data.get("status") || ""),
+    stock_total: data.get("stock_total"),
+    stock_available: data.get("stock_available"),
+    description: String(data.get("description") || ""),
+  };
+}
+
+function getBookValidationState(form) {
+  return validateBookData(readBookForm(form));
+}
+
+function setFieldError(form, name, message = "") {
+  const fieldWrap = form.querySelector(`[data-book-field="${CSS.escape(name)}"]`);
+  const innerField = fieldWrap?.querySelector(".field");
+  const input = fieldWrap?.querySelector(`[data-book-input="${CSS.escape(name)}"]`);
+  const error = fieldWrap?.querySelector(`[data-error-for="${CSS.escape(name)}"]`);
+
+  if (fieldWrap) {
+    fieldWrap.classList.toggle("has-error", Boolean(message));
+  }
+
+  if (innerField) {
+    innerField.classList.toggle("has-error", Boolean(message));
+  }
+
+  if (input) {
+    input.classList.toggle("is-invalid", Boolean(message));
+    input.setAttribute("aria-invalid", message ? "true" : "false");
+  }
+
+  if (error) {
+    error.textContent = message;
+    error.hidden = !message;
+  }
+}
+
+function setBookErrors(form, errors = {}) {
+  BOOK_FIELD_NAMES.forEach((name) => {
+    setFieldError(form, name, errors?.[name] || "");
+  });
+}
+
+function clearBookErrors(form) {
+  setBookErrors(form, {});
+}
+
+function syncBookFieldErrors(form, changedName) {
+  const validation = getBookValidationState(form);
+  const names =
+    changedName === "stock_total"
+      ? ["stock_total", "stock_available"]
+      : changedName === "stock_available"
+        ? ["stock_available", "stock_total"]
+        : [changedName];
+
+  names.forEach((name) => setFieldError(form, name, validation.errors?.[name] || ""));
+  return validation;
+}
+
+function createBookToast(message, tone = "success") {
+  const toast = document.createElement("div");
+  toast.className = "book-toast";
+  toast.dataset.tone = tone;
+  toast.textContent = message;
+  document.body.appendChild(toast);
+
+  window.setTimeout(() => {
+    toast.remove();
+  }, 2800);
+}
+
+function setAlertBox(alertBox, message = "", tone = "error") {
+  if (!alertBox) return;
+  if (message) {
+    alertBox.dataset.type = tone;
+    alertBox.textContent = message;
+    alertBox.hidden = false;
+  } else {
+    alertBox.hidden = true;
+    alertBox.textContent = "";
+    delete alertBox.dataset.type;
+  }
+}
 
 function filteredItems() {
   const q = state.query.trim().toLowerCase();
@@ -156,10 +297,12 @@ function filterLayer() {
   </div>`;
 }
 
-function bookModal(book = null) {
+function buildBookModal(book = null) {
   const isEdit = Boolean(book);
   const selectedStatus = book?.status || "aktif";
   const selectedCategory = activeCategories().some((category) => Number(category.id) === Number(book?.category_id)) ? Number(book?.category_id || 0) : 0;
+  const currentYear = new Date().getFullYear();
+
   return `<div class="modal-layer">
     <div class="modal modal-xl">
       <div class="modal-head">
@@ -170,34 +313,104 @@ function bookModal(book = null) {
         <input type="hidden" name="id" value="${escapeHtml(book?.id || "")}" />
         <p style="margin:0;color:#6e7979;font-size:12px;line-height:16px">Masukkan informasi katalog lengkap sesuai buku fisik</p>
         <div class="login-alert" data-book-alert hidden></div>
-        <div class="field full">
-          <label>${renderLabelHtml("KATEGORI BUKU *")}</label>
-          <select class="input" name="category_id" required>${categoryOptions(selectedCategory)}</select>
+        <div class="book-field" data-book-field="category_id">
+          <div class="field full">
+            <label>${renderLabelHtml("KATEGORI BUKU *")}</label>
+            <select class="input" name="category_id" data-book-input="category_id" required>
+              <option value="">Pilih kategori</option>
+              ${activeCategories()
+                .map(
+                  (category) =>
+                    `<option value="${category.id}" ${Number(selectedCategory) === Number(category.id) ? "selected" : ""}>${escapeHtml(category.code)} - ${escapeHtml(category.name)}</option>`,
+                )
+                .join("")}
+            </select>
+          </div>
+          <p class="field-error" data-error-for="category_id" hidden></p>
         </div>
-        ${field("JUDUL BUKU *", book?.title || "", { name: "title", placeholder: "Contoh: Belajar Pemrograman Web", full: true })}
+        ${bookField("title", "JUDUL BUKU *", book?.title || "", {
+          placeholder: "Contoh: Belajar Pemrograman Web",
+          full: true,
+          attrs: { required: true, maxlength: 255, autocomplete: "off" },
+        })}
         <div class="split" style="gap:16px">
-          ${field("PENULIS *", book?.author || "", { name: "author", placeholder: "Nama penulis" })}
-          ${field("PENERBIT *", book?.publisher || "", { name: "publisher", placeholder: "Nama penerbit" })}
+          ${bookField("author", "PENULIS *", book?.author || "", {
+            placeholder: "Nama penulis",
+            attrs: { required: true, maxlength: 150, autocomplete: "off" },
+          })}
+          ${bookField("publisher", "PENERBIT *", book?.publisher || "", {
+            placeholder: "Nama penerbit",
+            attrs: { required: true, maxlength: 150, autocomplete: "off" },
+          })}
         </div>
         <div class="split" style="gap:16px">
-          ${field("TAHUN TERBIT", book?.publication_year || "", { name: "publication_year", placeholder: "2024", type: "number" })}
-          ${field("ISBN", book?.isbn || "", { name: "isbn", placeholder: "978-602-xxx" })}
+          ${bookField("publication_year", "TAHUN TERBIT *", book?.publication_year || "", {
+            placeholder: String(currentYear),
+            attrs: {
+              type: "number",
+              required: true,
+              min: 1900,
+              max: currentYear,
+              inputmode: "numeric",
+            },
+          })}
+          ${bookField("isbn", "ISBN *", book?.isbn || "", {
+            placeholder: "978-602-03-2190-2",
+            attrs: {
+              type: "text",
+              required: true,
+              autocomplete: "off",
+              spellcheck: "false",
+              maxlength: 20,
+              inputmode: "text",
+              autocapitalize: "characters",
+            },
+          })}
         </div>
         <div class="split" style="gap:16px">
-          ${field("EDISI", book?.edition || "", { name: "edition", placeholder: "Edisi 1" })}
-          ${field("BAHASA", book?.language || "", { name: "language", placeholder: "Indonesia" })}
+          ${bookField("edition", "EDISI", book?.edition || "", {
+            placeholder: "Edisi 1",
+            attrs: { maxlength: 30, autocomplete: "off" },
+          })}
+          ${bookField("language", "BAHASA *", book?.language || "", {
+            placeholder: "Indonesia",
+            attrs: { required: true, maxlength: 50, autocomplete: "off" },
+          })}
         </div>
         <div class="split" style="gap:16px">
-          ${field("LOKASI RAK", book?.shelf_location || "", { name: "shelf_location", placeholder: "Rak A-1" })}
-          ${field("STATUS BUKU", selectedStatus, { name: "status", tag: "select", options: ["aktif", "nonaktif"] })}
+          ${bookField("shelf_location", "LOKASI RAK *", book?.shelf_location || "", {
+            placeholder: "Rak A-1",
+            attrs: { required: true, maxlength: 20, autocomplete: "off" },
+          })}
+          <div class="book-field" data-book-field="status">
+            <div class="field">
+              <label>${renderLabelHtml("STATUS BUKU *")}</label>
+              <select class="input" name="status" data-book-input="status" required>
+                <option value="aktif" ${selectedStatus === "aktif" ? "selected" : ""}>Aktif</option>
+                <option value="nonaktif" ${selectedStatus === "nonaktif" ? "selected" : ""}>Nonaktif</option>
+              </select>
+            </div>
+            <p class="field-error" data-error-for="status" hidden></p>
+          </div>
         </div>
         <div class="split" style="gap:16px">
-          ${field("STOK TOTAL *", String(book?.stock_total ?? 0), { name: "stock_total", placeholder: "1", type: "number" })}
-          ${field("STOK TERSEDIA", String(book?.stock_available ?? book?.stock_total ?? 0), { name: "stock_available", placeholder: "1", type: "number" })}
+          ${bookField("stock_total", "STOK TOTAL *", String(book?.stock_total ?? 0), {
+            placeholder: "1",
+            attrs: { type: "number", required: true, min: 0, step: 1, inputmode: "numeric" },
+          })}
+          ${bookField("stock_available", "STOK TERSEDIA *", String(book?.stock_available ?? book?.stock_total ?? 0), {
+            placeholder: "1",
+            attrs: { type: "number", required: true, min: 0, step: 1, inputmode: "numeric" },
+          })}
         </div>
-        ${field("DESKRIPSI", book?.description || "", { name: "description", textarea: true, placeholder: "Tuliskan deskripsi singkat buku..." })}
+        ${bookField("description", "DESKRIPSI", book?.description || "", {
+          textarea: true,
+          rows: 5,
+          placeholder: "Tuliskan deskripsi singkat buku...",
+          attrs: { maxlength: 1000 },
+        })}
         <div class="form-actions">
-          <button class="btn primary" type="submit">${isEdit ? "SIMPAN PERUBAHAN" : "SIMPAN BUKU"}</button>
+          <button class="btn primary" type="submit" data-book-submit>${isEdit ? "SIMPAN PERUBAHAN" : "SIMPAN BUKU"}</button>
         </div>
       </form>
     </div>
@@ -242,12 +455,13 @@ function renderShell() {
 function openBookModal(book = null) {
   if (document.querySelector(".modal-layer")) return;
   const isEdit = Boolean(book);
-  document.body.insertAdjacentHTML("beforeend", bookModal(book));
+  document.body.insertAdjacentHTML("beforeend", buildBookModal(book));
 
   const layer = document.querySelector(".modal-layer");
   const form = layer?.querySelector("[data-book-form]");
   const closeButton = layer?.querySelector(".modal-close");
   const alertBox = layer?.querySelector("[data-book-alert]");
+  const submitButton = layer?.querySelector("[data-book-submit]");
 
   const closeModal = () => {
     layer?.remove();
@@ -255,74 +469,105 @@ function openBookModal(book = null) {
 
   closeButton?.addEventListener("click", closeModal);
 
-  form?.addEventListener("submit", async (event) => {
-    event.preventDefault();
-    if (!alertBox) return;
-    const data = new FormData(form);
-    const payload = {
-      id: Number(data.get("id") || 0),
-      category_id: Number(data.get("category_id") || 0),
-      title: String(data.get("title") || "").trim(),
-      author: String(data.get("author") || "").trim(),
-      publisher: String(data.get("publisher") || "").trim(),
-      publication_year: String(data.get("publication_year") || "").trim(),
-      isbn: String(data.get("isbn") || "").trim(),
-      edition: String(data.get("edition") || "").trim(),
-      language: String(data.get("language") || "").trim(),
-      shelf_location: String(data.get("shelf_location") || "").trim(),
-      description: String(data.get("description") || "").trim(),
-      stock_total: Number(data.get("stock_total") || 0),
-      stock_available: data.get("stock_available") === "" ? "" : Number(data.get("stock_available") || 0),
-      status: String(data.get("status") || "aktif").trim(),
+  form?.querySelectorAll("[data-book-input]").forEach((input) => {
+    const handleValidation = (event) => {
+      const target = event.currentTarget;
+      if (!(target instanceof HTMLInputElement || target instanceof HTMLSelectElement || target instanceof HTMLTextAreaElement)) {
+        return;
+      }
+
+      if (target.name === "isbn") {
+        const sanitized = sanitizeISBNInput(target.value);
+        if (sanitized !== target.value) {
+          target.value = sanitized;
+        }
+      }
+
+      syncBookFieldErrors(form, target.name);
     };
 
-    if (!payload.category_id || !payload.title || !payload.author || !payload.publisher) {
-      alertBox.hidden = false;
-      alertBox.dataset.type = "error";
-      alertBox.textContent = "Kategori, judul, penulis, dan penerbit wajib diisi.";
-      return;
-    }
-    if (payload.stock_total < 0 || Number.isNaN(payload.stock_total)) {
-      alertBox.hidden = false;
-      alertBox.dataset.type = "error";
-      alertBox.textContent = "Stok total tidak valid.";
+    input.addEventListener("input", handleValidation);
+    input.addEventListener("change", handleValidation);
+    input.addEventListener("blur", (event) => {
+      const target = event.currentTarget;
+      if (!(target instanceof HTMLInputElement || target instanceof HTMLSelectElement || target instanceof HTMLTextAreaElement)) {
+        return;
+      }
+
+      if (target.name === "isbn") {
+        target.value = sanitizeISBNInput(target.value);
+      }
+
+      syncBookFieldErrors(form, target.name);
+    });
+  });
+
+  clearBookErrors(form);
+  setAlertBox(alertBox, "");
+
+  form?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    if (!alertBox || !submitButton) return;
+
+    const validation = validateBookData(readBookForm(form));
+    setBookErrors(form, validation.errors);
+
+    if (!validation.valid) {
+      setAlertBox(alertBox, firstBookError(validation.errors), "error");
       return;
     }
 
-    const submitButton = form.querySelector('[type="submit"]');
-    if (submitButton) {
-      submitButton.disabled = true;
-      submitButton.textContent = "Menyimpan...";
-    }
+    const formData = new FormData(form);
+    const payload = {
+      id: Number(formData.get("id") || 0),
+      ...validation.data,
+    };
+
+    submitButton.disabled = true;
+    submitButton.setAttribute("aria-busy", "true");
+    submitButton.textContent = "Menyimpan...";
 
     try {
       await apiFetch("/api/books", {
         method: isEdit ? "PUT" : "POST",
         body: JSON.stringify(payload),
       });
+      createBookToast(isEdit ? "Buku berhasil diperbarui." : "Buku berhasil ditambahkan.", "success");
       closeModal();
       await loadBooks();
     } catch (error) {
-      alertBox.hidden = false;
-      alertBox.dataset.type = "error";
-      alertBox.textContent = error?.payload?.message || error?.message || "Gagal menyimpan buku.";
-    } finally {
-      if (submitButton) {
-        submitButton.disabled = false;
-        submitButton.textContent = isEdit ? "SIMPAN PERUBAHAN" : "SIMPAN BUKU";
+      const responseErrors = error?.payload?.errors;
+      if (responseErrors) {
+        setBookErrors(form, responseErrors);
       }
+
+      const message = error?.payload?.message || error?.message || "Gagal menyimpan buku.";
+      setAlertBox(alertBox, message, "error");
+      createBookToast(message, "error");
+    } finally {
+      submitButton.disabled = false;
+      submitButton.removeAttribute("aria-busy");
+      submitButton.textContent = isEdit ? "SIMPAN PERUBAHAN" : "SIMPAN BUKU";
     }
   });
 }
 
-async function deleteBook(id) {
-  if (!window.confirm("Yakin ingin menonaktifkan buku ini?")) return;
-  try {
-    await apiFetch("/api/books", { method: "DELETE", body: JSON.stringify({ id }) });
-    await loadBooks();
-  } catch (error) {
-    window.alert(error?.payload?.message || error?.message || "Gagal menonaktifkan buku.");
-  }
+function deleteBook(id) {
+  if (!window.confirm("Yakin ingin menghapus buku ini dari database?")) return;
+
+  apiFetch("/api/books", {
+    method: "DELETE",
+    body: JSON.stringify({ id }),
+  })
+    .then(async () => {
+      createBookToast("Buku berhasil dihapus.", "success");
+      await loadBooks();
+    })
+    .catch((error) => {
+      const message = error?.payload?.message || error?.message || "Gagal menghapus buku.";
+      createBookToast(message, "error");
+      window.alert(message);
+    });
 }
 
 function bindHandlers() {
@@ -431,12 +676,7 @@ async function loadBooks() {
     const categoriesPayload = categoriesResponse?.data || {};
     state.items = Array.isArray(booksPayload.items) ? booksPayload.items : [];
     state.categories = Array.isArray(categoriesPayload.items) ? categoriesPayload.items : [];
-    state.summary = {
-      total: Number(booksPayload.summary?.total ?? state.items.length),
-      active: Number(booksPayload.summary?.active ?? 0),
-      low_stock: Number(booksPayload.summary?.low_stock ?? 0),
-      empty_stock: Number(booksPayload.summary?.empty_stock ?? 0),
-    };
+    state.summary = buildSummary(state.items);
     state.page = 1;
   } catch (error) {
     state.error = error?.payload?.message || error?.message || "Gagal memuat buku.";
