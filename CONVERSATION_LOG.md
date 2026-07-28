@@ -1506,3 +1506,101 @@ Hasil:
 
 - `frontend/admin/laporan.js` diubah supaya chart tren memakai satu skala tinggi gabungan untuk `peminjaman` dan `pengadaan`
 - basis tinggi terpisah yang sebelumnya membuat bar tidak sebanding sudah dihapus
+
+## 103) Prompt seratus tiga: hapus buku harus ke database
+
+User meminta:
+
+- tombol hapus buku di `frontend/admin/buku.html` juga harus menghapus data bukunya di database
+
+Hasil:
+
+- `backend/routes/api.php` untuk `DELETE /api/books` diubah dari nonaktifkan status menjadi `DELETE FROM books`
+- jika buku masih dipakai riwayat peminjaman, endpoint sekarang menolak dengan pesan konflik yang jelas
+- `frontend/admin/buku-view.js` kembali memanggil API delete lalu me-refresh data dari database setelah berhasil
+
+## 104) Prompt seratus empat: refactor validasi ISBN dan form buku
+
+User meminta:
+
+- refactor validasi tambah/edit buku supaya mendukung ISBN-10 dan ISBN-13
+- frontend dan backend harus memakai aturan validasi yang sama
+- schema database perlu menyesuaikan kolom ISBN dan judul buku
+
+Hasil:
+
+- `frontend/admin/book-validation.js` dan `backend/src/Support/BookValidation.php` disusun ulang dengan helper `normalizeISBN`, `validatePublicationYear`, `validateStock`, dan `validateBookData`
+- `frontend/admin/buku-view.js` memakai validasi realtime, sanitasi ISBN saat mengetik, state submit yang dinonaktifkan saat proses simpan, serta pesan error yang tampil di bawah field
+- `backend/routes/api.php` menambahkan penanganan duplicate ISBN yang lebih jelas saat insert atau update
+- schema `books.title` dinaikkan ke `VARCHAR(255)` dan migrasi baru ditambahkan untuk memastikan database lama ikut menyesuaikan
+- validasi CRUD buku tetap memakai satu sumber aturan yang sama agar tidak mudah drift antara frontend dan backend
+
+## 105) Prompt seratus lima: refactor validasi dan CRUD anggota
+
+User meminta:
+
+- refactor dan meningkatkan kualitas fitur CRUD anggota
+- validasi frontend dan backend harus konsisten
+- kode harus lebih modular tanpa merusak alur CRUD yang sudah berjalan
+
+Hasil:
+
+- helper validasi anggota ditambahkan di `frontend/admin/member-validation.js` dan `backend/src/Support/MemberValidation.php`
+- kode anggota dibuat otomatis oleh backend dengan format `ANG-001`, `ANG-002`, dan seterusnya
+- form tambah/edit anggota sekarang memakai validasi realtime, highlight error, pesan error di bawah field, loading submit, dan tombol simpan yang dinonaktifkan saat proses simpan
+- backend memvalidasi ulang nama, NIK, tanggal lahir, umur, telepon, alamat, jenis kelamin, dan status dengan rule yang sama seperti frontend
+- pencarian anggota tetap mendukung kode, nama, NIK, dan nomor telepon, sementara filter status, gender, dan rentang umur tetap berjalan bersama pagination
+- schema database anggota disesuaikan agar tipe data dan unique index mengikuti aturan baru tanpa mengubah alur CRUD utama
+
+## 106) Prompt seratus enam: gunakan form anggota hanya di anggota.html
+
+User meminta:
+
+- halaman `frontend/admin/tambah-anggota.html` dihapus
+- form tambah/edit anggota dipusatkan di `frontend/admin/anggota.html`
+
+Hasil:
+
+- file legacy `frontend/admin/tambah-anggota.html`, `frontend/admin/tambah-anggota.js`, dan `frontend/admin/tambah-anggota-view.js` dihapus dari jalur aktif
+- pemetaan halaman di `frontend/shared/entry.js` dibersihkan supaya tidak lagi memuat `addMember`
+- proteksi role di `frontend/shared/auth.js` juga dibersihkan dari entri `addMember`
+- `frontend/admin/anggota.js` dirapikan supaya tidak lagi menyisakan referensi ke halaman lama
+- form anggota tetap berjalan dari `anggota.html` melalui modal tambah/edit yang sudah ada di `frontend/admin/anggota-view.js`
+
+## 107) Prompt seratus tujuh: rapikan form anggota inti di anggota.html
+
+User meminta:
+
+- form anggota di `frontend/admin/anggota.html` harus sesuai spesifikasi inti yang diberikan
+- field tambahan yang tidak diminta sebaiknya tidak ditampilkan
+
+Hasil:
+
+- form anggota di modal `frontend/admin/anggota-view.js` disederhanakan menjadi field inti yang memang diminta: kode anggota, nama lengkap, NIK, tanggal lahir, jenis kelamin, nomor telepon, alamat, dan status
+- urutan field error di `frontend/admin/member-form.js` disesuaikan supaya fokus validasi tetap ke field utama yang dipakai di form
+- loader `frontend/admin/anggota.js` dipadatkan menjadi bootstrap minimal ke `anggota-view.js`
+- validasi frontend dan backend tetap konsisten untuk nama, NIK, tanggal lahir, umur, telepon, alamat, gender, dan status tanpa mengubah alur CRUD yang sudah berjalan
+
+## 108) Prompt seratus delapan: perjelas input tanggal lahir
+
+User meminta:
+
+- field tanggal lahir di form anggota perlu dibuat lebih jelas karena belum ada contoh format
+
+Hasil:
+
+- `frontend/admin/anggota-view.js` menambahkan teks bantuan di bawah field tanggal lahir
+- petunjuk baru menjelaskan bahwa tanggal lahir mengikuti format picker browser dan umur dihitung otomatis dari nilai tersebut
+- validasi dan alur simpan tidak diubah, hanya UX form yang diperjelas
+
+## 109) Prompt seratus sembilan: tambahkan placeholder tanggal lahir
+
+User meminta:
+
+- field tanggal lahir perlu diberi placeholder agar format yang valid lebih jelas
+
+Hasil:
+
+- `frontend/admin/anggota-view.js` sekarang memberi placeholder `YYYY-MM-DD` pada field tanggal lahir
+- atribut `title` juga ditambahkan supaya browser menampilkan petunjuk format saat diperlukan
+- helper text yang sudah ada tetap dipertahankan agar format tetap jelas di browser yang mengabaikan placeholder pada input `date`

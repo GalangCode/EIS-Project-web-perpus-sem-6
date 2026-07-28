@@ -1,8 +1,8 @@
 # Handoff Notes — EIS Balangan Frontend
 
-Tanggal catatan: 2026-07-27
+Tanggal catatan: 2026-07-28
 
-Pembaruan terakhir: 2026-07-27 13:58:14
+Pembaruan terakhir: 2026-07-28 14:50:14
 
 ## Tujuan saat ini
 
@@ -177,9 +177,40 @@ Isi halaman ada di file terpisah, misalnya:
 - `frontend/admin/tambah-buku.js` sudah dihapus.
 - `frontend/admin/tambah-buku.html` sudah dihapus.
 
+## Hapus Buku Permanen
+
+Status:
+
+- tombol hapus di halaman buku sekarang menghapus record buku dari database, bukan hanya menonaktifkan status
+
+Perubahan:
+
+- `backend/routes/api.php` mengubah `DELETE /api/books` menjadi `DELETE FROM books`
+- `frontend/admin/buku-view.js` kembali memanggil API delete lalu me-refresh data dari server
+- pesan error dibuat lebih jelas jika buku masih dipakai riwayat peminjaman
+
+Catatan:
+
+- karena ada relasi `loan_items -> books`, penghapusan permanen bisa ditolak bila buku masih direferensikan data transaksi
+- kalau ingin perilaku yang lebih aman, bisa ditambahkan mode arsip/soft delete terpisah di masa depan
+
 ## File penting yang terakhir berubah
 
-- `frontend/kepala-perpustakaan/rekomendasi.js`
+- `backend/bootstrap.php`
+- `backend/routes/api.php`
+- `backend/src/Support/MemberValidation.php`
+- `database/migrations/001_initial_schema.sql`
+- `database/migrations/004_members_refactor.sql`
+- `frontend/admin/anggota-view.js`
+- `frontend/admin/anggota.js`
+- `frontend/admin/member-form.js`
+- `frontend/admin/member-validation.js`
+- `frontend/admin/tambah-anggota.html` (dihapus)
+- `frontend/admin/tambah-anggota.js` (dihapus)
+- `frontend/admin/tambah-anggota-view.js` (dihapus)
+- `frontend/shared/auth.js`
+- `frontend/shared/entry.js`
+- `frontend/shared/styles.css`
 - `CONVERSATION_LOG.md`
 - `HANDOFF_NOTES.md`
 
@@ -201,6 +232,56 @@ Lalu buka:
 `http://localhost:8000/index.html`
 
 ## Status teknis
+
+- file PHP dan JS yang diubah pada sesi ini sudah lolos pengecekan sintaks dasar
+
+## Refactor CRUD Anggota
+
+Status:
+
+- fitur CRUD anggota sudah dirapikan dengan helper bersama untuk validasi, sanitasi, dan normalisasi data
+- validasi frontend dan backend sudah memakai aturan yang sama untuk nama, NIK, tanggal lahir, umur, telepon, alamat, gender, dan status
+- jalur form anggota sekarang dipusatkan di `frontend/admin/anggota.html` dan tidak lagi memiliki halaman tambah terpisah
+- form yang tampil kini hanya memuat field inti anggota, tanpa field tambahan yang tidak diminta
+- tanggal lahir kini diberi teks bantuan di bawah field supaya format input lebih jelas bagi pengguna
+- tanggal lahir juga punya placeholder `YYYY-MM-DD` dan `title` untuk memperjelas format valid
+
+Perubahan:
+
+- kode anggota dibuat otomatis oleh backend dengan format `ANG-###` dan tidak bisa diedit dari UI
+- `frontend/admin/anggota-view.js` sekarang mendukung search, filter status, filter gender, filter rentang umur, pagination, dan modal tambah/edit dengan validasi realtime
+- tampilan form anggota disederhanakan agar mengikuti spesifikasi inti: kode anggota, nama lengkap, NIK, tanggal lahir, jenis kelamin, nomor telepon, alamat, dan status
+- teks bantuan tanggal lahir ditambahkan untuk memperjelas bahwa tanggal dihitung lewat picker browser
+- placeholder dan title di field tanggal lahir ditambahkan supaya format valid lebih mudah dipahami
+- `frontend/admin/member-validation.js` dan `backend/src/Support/MemberValidation.php` menyimpan rule validasi bersama, termasuk sanitasi input string dan hitung umur dari tanggal lahir
+- schema database anggota disesuaikan agar `nama_lengkap`, `nik`, `tanggal_lahir`, `jenis_kelamin`, `nomor_telepon`, `alamat`, dan `status` mengikuti constraint yang diminta
+- entry frontend dan proteksi role dibersihkan dari rute `addMember` yang sudah tidak dipakai
+- file legacy `tambah-anggota*` dihapus supaya tidak ada jalur ganda yang membingungkan pengguna
+
+Catatan:
+
+- import anggota tidak ditemukan di codebase aktif, jadi helper difokuskan ke tambah/edit/list yang benar-benar dipakai
+- perubahan ini sudah divalidasi dengan `php -l` dan `node --check`, lalu diuji singkat dengan skenario valid dan invalid yang utama
+- file legacy yang dihapus memang sudah tidak dipakai oleh alur aktif, jadi penghapusan tidak mengubah CRUD yang berjalan
+
+## Refactor ISBN Dan Validasi Buku
+
+Status:
+
+- validasi tambah/edit buku sudah disatukan di frontend dan backend
+- ISBN-10 dan ISBN-13 sama-sama diterima, lalu disimpan ke database dalam bentuk normalisasi tanpa tanda hubung
+
+Perubahan:
+
+- helper validasi buku di frontend dan backend kini punya fungsi terpisah untuk normalisasi ISBN, validasi tahun terbit, validasi stok, dan validasi payload
+- form buku di `frontend/admin/buku-view.js` sekarang menjalankan validasi realtime, menampilkan pesan error di bawah field, dan menonaktifkan tombol simpan saat submit berlangsung
+- schema buku disesuaikan agar judul bisa menampung 255 karakter, sementara ISBN tetap disimpan di kolom `VARCHAR(20)` dengan unique index
+- backend menambah penanganan duplicate ISBN agar pesan error tetap jelas saat insert atau update
+
+Catatan:
+
+- file legacy buku yang tidak dipakai oleh loader utama tidak disentuh agar fokus perubahan tetap di jalur aktif
+- kalau nanti ada fitur import buku, helper yang sama bisa dipakai ulang supaya aturan validasinya tetap konsisten
 
 Semua file JS yang ada di `frontend/` sudah lolos `node --check` terakhir kali dicek.
 
