@@ -1,6 +1,7 @@
 import { apiFetch } from "./api.js";
 
 const SESSION_KEY = "eis_balangan_session";
+const SIDEBAR_COLLAPSED_KEY = "eis_balangan_sidebar_collapsed";
 
 const roleRoutes = {
   admin: {
@@ -100,6 +101,69 @@ export function getSessionRole() {
   if (!session?.access_token) return null;
   const claims = decodeTokenPayload(session.access_token);
   return claims?.role || session?.user?.role?.code || null;
+}
+
+export function isSidebarCollapsed() {
+  if (typeof window === "undefined" || !window.localStorage) return false;
+  return window.localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === "1";
+}
+
+export function setSidebarCollapsed(value) {
+  if (typeof window === "undefined" || !window.localStorage) return;
+  window.localStorage.setItem(SIDEBAR_COLLAPSED_KEY, value ? "1" : "0");
+}
+
+export function bindSidebarToggle() {
+  if (typeof document === "undefined") return;
+  if (document.documentElement.dataset.sidebarToggleBound === "1") {
+    const collapsed = isSidebarCollapsed();
+    document.querySelectorAll(".app-shell").forEach((shell) => {
+      shell.classList.toggle("sidebar-collapsed", collapsed);
+      shell.querySelector(".sidebar")?.classList.toggle("collapsed", collapsed);
+    });
+    document.body.classList.toggle("sidebar-collapsed", collapsed);
+    document.querySelectorAll("[data-sidebar-toggle]").forEach((button) => {
+      button.setAttribute("aria-expanded", String(!collapsed));
+      button.setAttribute("aria-label", collapsed ? "Tampilkan sidebar" : "Sembunyikan sidebar");
+      button.dataset.state = collapsed ? "collapsed" : "expanded";
+      button.textContent = collapsed ? "▶" : "◀";
+    });
+    return;
+  }
+
+  document.documentElement.dataset.sidebarToggleBound = "1";
+
+  const applyState = (collapsed) => {
+    document.querySelectorAll(".app-shell").forEach((shell) => {
+      shell.classList.toggle("sidebar-collapsed", collapsed);
+      shell.querySelector(".sidebar")?.classList.toggle("collapsed", collapsed);
+    });
+    document.body.classList.toggle("sidebar-collapsed", collapsed);
+    document.querySelectorAll("[data-sidebar-toggle]").forEach((button) => {
+      button.setAttribute("aria-expanded", String(!collapsed));
+      button.setAttribute("aria-label", collapsed ? "Tampilkan sidebar" : "Sembunyikan sidebar");
+      button.dataset.state = collapsed ? "collapsed" : "expanded";
+      button.textContent = collapsed ? "▶" : "◀";
+    });
+  };
+
+  applyState(isSidebarCollapsed());
+
+  document.addEventListener(
+    "click",
+    (event) => {
+      const button = event.target instanceof Element ? event.target.closest("[data-sidebar-toggle]") : null;
+      if (!button) return;
+
+      const shell = button.closest(".app-shell") || document.querySelector(".app-shell");
+      if (!shell) return;
+
+      const next = !shell.classList.contains("sidebar-collapsed");
+      setSidebarCollapsed(next);
+      applyState(next);
+    },
+    true,
+  );
 }
 
 export function getLoginPath(role) {

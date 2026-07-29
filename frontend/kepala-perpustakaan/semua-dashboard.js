@@ -243,7 +243,11 @@ function openBookDetailModal(book) {
 function renderHero() {
   return `<div class="all-hero">
     <div>
-      <p class="all-breadcrumb">Dashboard Eksekutif &rsaquo; Detail Data</p>
+      <nav class="all-breadcrumb" aria-label="breadcrumb">
+        <a class="breadcrumb-link" href="dashboard.html">Dashboard Eksekutif</a>
+        <span class="breadcrumb-separator" aria-hidden="true">&rsaquo;</span>
+        <span aria-current="page">Detail Data</span>
+      </nav>
       <h1 class="all-title">Data Lengkap Analisis Peminjaman</h1>
       <p class="all-copy">Laporan komprehensif inventaris dan sirkulasi koleksi perpustakaan.</p>
     </div>

@@ -314,7 +314,7 @@ function openModal(category = null) {
 }
 
 async function deleteCategory(id) {
-  if (!window.confirm("Yakin ingin menonaktifkan kategori ini?")) return;
+  if (!window.confirm("Yakin ingin menghapus kategori ini secara permanen?")) return;
   try {
     await apiFetch("/api/categories", {
       method: "DELETE",

@@ -1,13 +1,13 @@
-import { bindLogoutLinks, getHomePath, getLoginPath, getRequiredRole, getSessionRole } from "./auth.js";
+import { bindLogoutLinks, bindSidebarToggle, getHomePath, getLoginPath, getRequiredRole, getSessionRole, isSidebarCollapsed } from "./auth.js";
 
 const { page = "login" } = document.body.dataset;
 
 const pageModules = {
   login: "../shared/login.js",
   adminLogin: "../admin/login.js",
-  category: "../admin/kategori.js",
+  category: "../admin/kategori.js?v=20260729",
   books: "../admin/buku-view.js",
-  members: "../admin/anggota.js",
+  members: "../admin/anggota.js?v=20260729",
   circulation: "../admin/sirkulasi-view.js",
   addBorrow: "../admin/tambah-peminjaman.js",
   report: "../admin/laporan.js",
@@ -27,6 +27,7 @@ const modulePath = pageModules[page];
 const requiredRole = getRequiredRole(page);
 const sessionRole = getSessionRole();
 let redirectTarget = null;
+const sidebarCollapsed = isSidebarCollapsed();
 
 if (page === "login" || page === "adminLogin" || page === "kepalaLogin") {
   if (sessionRole) {
@@ -45,6 +46,8 @@ if (redirectTarget) {
 } else if (!modulePath) {
   document.body.innerHTML = `<main style="padding:40px;font-family:sans-serif">Halaman tidak ditemukan: ${page}</main>`;
 } else {
+  document.body.classList.toggle("sidebar-collapsed", sidebarCollapsed);
   await import(modulePath);
   bindLogoutLinks();
+  bindSidebarToggle();
 }

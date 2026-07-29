@@ -184,7 +184,7 @@ export function loginPage(role = "all") {
     <section class="login-right">
       <div class="login-box">
         <div class="login-brand">
-          <img class="login-brand-logo" src="${assetPrefix}/logo.jpeg" alt="Logo Kabupaten Balangan">
+          <img class="login-brand-logo" src="${assetPrefix}/logo.png" alt="Logo Kabupaten Balangan">
           <h2>${isUnified ? "Perpustakaan Balangan" : "Perpustakaan"}</h2>
           <p>${isUnified ? "Login Admin dan Kepala" : "Kabupaten Balangan"}</p>
         </div>

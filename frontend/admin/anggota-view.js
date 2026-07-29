@@ -138,7 +138,7 @@ function buildTable(items) {
         <td>${statusPill(item.status)}</td>
         <td><div class="actions">
           <button class="row-btn" data-action="edit" data-id="${item.id}" aria-label="Edit anggota">✎</button>
-          <button class="row-btn" data-action="delete" data-id="${item.id}" aria-label="Nonaktifkan anggota">⌫</button>
+          <button class="row-btn" data-action="delete" data-id="${item.id}" aria-label="Hapus anggota">⌫</button>
         </div></td>
       </tr>`,
     )
@@ -455,18 +455,18 @@ function openMemberModal(member = null) {
 }
 
 function deleteMember(id) {
-  if (!window.confirm("Yakin ingin menonaktifkan anggota ini?")) return;
+  if (!window.confirm("Yakin ingin menghapus anggota ini secara permanen?")) return;
 
   apiFetch("/api/members", {
     method: "DELETE",
     body: JSON.stringify({ id }),
   })
     .then(async () => {
-      createMemberToast("Anggota berhasil dinonaktifkan.", "success");
+      createMemberToast("Anggota berhasil dihapus.", "success");
       await loadMembers();
     })
     .catch((error) => {
-      const message = error?.payload?.message || error?.message || "Gagal menonaktifkan anggota.";
+      const message = error?.payload?.message || error?.message || "Gagal menghapus anggota.";
       createMemberToast(message, "error");
       window.alert(message);
     });

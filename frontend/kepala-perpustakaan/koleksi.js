@@ -364,7 +364,11 @@ function renderContent() {
   return `<div class="collection-page">
     <div class="hero-row collection-hero">
       <div>
-        <p class="page-copy collection-breadcrumb">Dashboard Eksekutif › Koleksi</p>
+        <nav class="page-copy collection-breadcrumb" aria-label="breadcrumb">
+          <a class="breadcrumb-link" href="dashboard.html">Dashboard Eksekutif</a>
+          <span class="breadcrumb-separator" aria-hidden="true">›</span>
+          <span aria-current="page">Koleksi</span>
+        </nav>
         <h1 class="page-title collection-title">Analisis Koleksi Perpustakaan</h1>
       </div>
     </div>

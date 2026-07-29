@@ -154,7 +154,7 @@ function buildMemberOptions() {
 }
 
 function buildMemberSelect(selectedId = 0) {
-  const activeMembers = state.members.filter((member) => member.status === "aktif");
+  const activeMembers = state.members.filter((member) => String(member.status || "").trim().toLowerCase() === "aktif");
   if (!activeMembers.length) {
     return '<option value="">Tidak ada anggota aktif</option>';
   }
@@ -165,22 +165,44 @@ function buildMemberSelect(selectedId = 0) {
     .join("");
 }
 
-function buildBookChecklist(selectedIds = []) {
+function buildDateField(name, label, value) {
+  return `<div class="field">
+    <label>${renderLabelHtml(label)}</label>
+    <div class="date-field">
+      <input class="input loan-date-input" type="date" name="${escapeHtml(name)}" value="${escapeHtml(value)}" required />
+      <button class="date-picker-btn" type="button" data-date-picker-for="${escapeHtml(name)}" aria-label="Buka kalender ${escapeHtml(label)}">📅</button>
+    </div>
+  </div>`;
+}
+
+function bookChecklistMatchesSearch(book, query) {
+  const q = String(query || "").trim().toLowerCase();
+  if (!q) return true;
+
+  return [book.title, book.code, book.category_name, book.category_code, book.status]
+    .filter(Boolean)
+    .some((value) => String(value).toLowerCase().includes(q));
+}
+
+function buildBookChecklist(selectedIds = [], query = "") {
   const selected = new Set(selectedIds.map((value) => Number(value)).filter((value) => value > 0));
   const books = state.books.filter((book) => {
     const isSelected = selected.has(Number(book.id));
-    return isSelected || (book.status === "aktif" && Number(book.stock_available || 0) > 0);
+    const matchesSearch = bookChecklistMatchesSearch(book, query);
+    return matchesSearch && (isSelected || (String(book.status || "").trim().toLowerCase() === "aktif" && Number(book.stock_available || 0) > 0));
   });
   if (!books.length) {
-    return '<div class="table-empty" style="padding:16px;color:#6e7979">Tidak ada buku aktif dengan stok tersedia.</div>';
+    return query
+      ? '<div class="table-empty" data-book-checklist-empty style="padding:16px;color:#6e7979">Tidak ada buku yang cocok dengan pencarian.</div>'
+      : '<div class="table-empty" data-book-checklist-empty style="padding:16px;color:#6e7979">Tidak ada buku aktif dengan stok tersedia.</div>';
   }
 
-  return `<div style="display:grid;gap:10px;max-height:260px;overflow:auto;padding-right:4px">
+  return `<div style="display:grid;gap:10px;max-height:260px;overflow:auto;padding-right:4px" data-book-checklist-list>
     ${books
       .map((book) => {
         const isChecked = selected.has(Number(book.id));
         const isDisabled = book.status !== "aktif" && !isChecked;
-        return `<label style="display:flex;gap:12px;align-items:flex-start;padding:12px 14px;border:1px solid #dbe4e3;border-radius:8px;background:#fff${isDisabled ? ";opacity:.7" : ""}">
+        return `<label data-book-checklist-item style="display:flex;gap:12px;align-items:flex-start;padding:12px 14px;border:1px solid #dbe4e3;border-radius:8px;background:#fff${isDisabled ? ";opacity:.7" : ""}">
         <input type="checkbox" name="book_ids" value="${escapeHtml(book.id)}" style="margin-top:3px" ${isChecked ? "checked" : ""} ${isDisabled ? "disabled" : ""} />
         <span style="display:block;min-width:0">
           <strong style="display:block;color:#191c1d">${escapeHtml(book.title)}</strong>
@@ -267,18 +289,16 @@ function renderLoanModal({ title, submitLabel, mode, item = null }) {
           </div>
         </div>
         <div class="split" style="gap:16px">
-          <div class="field">
-            <label>${renderLabelHtml("TANGGAL PINJAM *")}</label>
-            <input class="input" type="date" name="loan_date" value="${loanDate}" required />
-          </div>
-          <div class="field">
-            <label>${renderLabelHtml("TANGGAL KEMBALI *")}</label>
-            <input class="input" type="date" name="due_date" value="${dueDate}" required />
-          </div>
+          ${buildDateField("loan_date", "TANGGAL PINJAM *", loanDate)}
+          ${buildDateField("due_date", "TANGGAL KEMBALI *", dueDate)}
         </div>
         <div class="field full">
           <label>${renderLabelHtml("BUKU *")}</label>
-          ${buildBookChecklist(selectedBookIds)}
+          <label class="search loan-book-search">
+            <span>⌕</span>
+            <input class="search-field loan-book-search-input" type="search" data-book-search placeholder="Cari judul, kode, atau kategori buku..." value="" />
+          </label>
+          <div data-book-checklist-wrap>${buildBookChecklist(selectedBookIds)}</div>
         </div>
         <div class="field full">
           <label>CATATAN</label>
@@ -407,6 +427,9 @@ function openLoanModalDialog({ mode, title, submitLabel, item = null }) {
   const form = layer?.querySelector("[data-loan-form]");
   const closeButton = layer?.querySelector(".modal-close");
   const alertBox = layer?.querySelector("[data-loan-alert]");
+  const checklistWrap = layer?.querySelector("[data-book-checklist-wrap]");
+  const checklistSearch = layer?.querySelector("[data-book-search]");
+  const datePickers = layer?.querySelectorAll("[data-date-picker-for]");
   let isSubmitting = false;
 
   const closeModal = () => {
@@ -414,6 +437,30 @@ function openLoanModalDialog({ mode, title, submitLabel, item = null }) {
   };
 
   closeButton?.addEventListener("click", closeModal);
+
+  const renderChecklist = () => {
+    if (!form || !checklistWrap) return;
+    const selectedBookIds = Array.from(form.querySelectorAll('input[name="book_ids"]:checked'))
+      .map((input) => Number(input.value || 0))
+      .filter((value) => value > 0);
+    checklistWrap.innerHTML = buildBookChecklist(selectedBookIds, String(checklistSearch?.value || ""));
+  };
+
+  checklistSearch?.addEventListener("input", renderChecklist);
+
+  datePickers?.forEach((button) => {
+    button.addEventListener("click", () => {
+      const targetName = button.getAttribute("data-date-picker-for");
+      const input = targetName ? form?.querySelector(`input[name="${CSS.escape(targetName)}"]`) : null;
+      if (!(input instanceof HTMLInputElement)) return;
+      if (typeof input.showPicker === "function") {
+        input.showPicker();
+      } else {
+        input.focus();
+        input.click();
+      }
+    });
+  });
 
   form?.addEventListener("submit", async (event) => {
     event.preventDefault();
@@ -470,6 +517,13 @@ function openLoanModalDialog({ mode, title, submitLabel, item = null }) {
         submitButton.disabled = false;
         submitButton.textContent = modeValue === "edit" ? "SIMPAN PERUBAHAN" : "SIMPAN PEMINJAMAN";
       }
+    }
+  });
+
+  form?.addEventListener("change", (event) => {
+    const target = event.target;
+    if (target instanceof HTMLInputElement && target.name === "book_ids") {
+      renderChecklist();
     }
   });
 }

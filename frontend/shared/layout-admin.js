@@ -1,8 +1,9 @@
+import { isSidebarCollapsed } from "./auth.js";
 import { renderAdminSidebar } from "./sidebar-admin.js";
 import { renderAdminTopbar } from "./topbar-admin.js";
 
 export function renderAdminShell(active, title, content, overlay = "", opts = {}) {
-  return `<div class="app-shell">
+  return `<div class="app-shell exec ${isSidebarCollapsed() ? "sidebar-collapsed" : ""}">
     ${renderAdminSidebar(active)}
     <main class="main">
       ${renderAdminTopbar(title)}
@@ -11,4 +12,3 @@ export function renderAdminShell(active, title, content, overlay = "", opts = {}
     ${overlay || ""}
   </div>`;
 }
-
