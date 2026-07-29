@@ -2724,17 +2724,10 @@ $router->delete('/api/members', function (App\Http\Request $request, array $cont
     try {
         $pdo = Database::connection($context['database']);
         $statement = $pdo->prepare(
-            'UPDATE members
-             SET status = :status,
-                 updated_by = :updated_by,
-                 updated_at = CURRENT_TIMESTAMP
+            'DELETE FROM members
              WHERE id = :id'
         );
-        $statement->execute([
-            'id' => $id,
-            'status' => 'nonaktif',
-            'updated_by' => $identity['user_id'],
-        ]);
+        $statement->execute(['id' => $id]);
 
         if ($statement->rowCount() === 0) {
             return Response::json([
@@ -2745,12 +2738,21 @@ $router->delete('/api/members', function (App\Http\Request $request, array $cont
 
         return Response::json([
             'success' => true,
-            'message' => 'Anggota berhasil dinonaktifkan',
+            'message' => 'Anggota berhasil dihapus',
         ]);
     } catch (Throwable $throwable) {
+        $sqlState = $throwable instanceof PDOException ? (string) $throwable->getCode() : '';
+        if ($sqlState === '23000') {
+            return Response::json([
+                'success' => false,
+                'message' => 'Anggota masih dipakai pada riwayat peminjaman, jadi tidak bisa dihapus.',
+                'error' => $throwable->getMessage(),
+            ], 409);
+        }
+
         return Response::json([
             'success' => false,
-            'message' => 'Gagal menonaktifkan anggota',
+            'message' => 'Gagal menghapus anggota',
             'error' => $throwable->getMessage(),
         ], 500);
     }
@@ -3184,17 +3186,10 @@ $router->delete('/api/categories', function (App\Http\Request $request, array $c
     try {
         $pdo = Database::connection($context['database']);
         $statement = $pdo->prepare(
-            'UPDATE categories
-             SET status = :status,
-                 updated_by = :updated_by,
-                 updated_at = CURRENT_TIMESTAMP
+            'DELETE FROM categories
              WHERE id = :id'
         );
-        $statement->execute([
-            'id' => $id,
-            'status' => 'nonaktif',
-            'updated_by' => $identity['user_id'],
-        ]);
+        $statement->execute(['id' => $id]);
 
         if ($statement->rowCount() === 0) {
             return Response::json([
@@ -3205,9 +3200,18 @@ $router->delete('/api/categories', function (App\Http\Request $request, array $c
 
         return Response::json([
             'success' => true,
-            'message' => 'Kategori berhasil dinonaktifkan',
+            'message' => 'Kategori berhasil dihapus',
         ]);
     } catch (Throwable $throwable) {
+        $sqlState = $throwable instanceof PDOException ? (string) $throwable->getCode() : '';
+        if ($sqlState === '23000') {
+            return Response::json([
+                'success' => false,
+                'message' => 'Kategori masih dipakai pada buku, jadi tidak bisa dihapus.',
+                'error' => $throwable->getMessage(),
+            ], 409);
+        }
+
         return Response::json([
             'success' => false,
             'message' => 'Gagal menghapus kategori',
