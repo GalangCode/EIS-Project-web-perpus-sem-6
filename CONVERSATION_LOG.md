@@ -154,7 +154,7 @@ User meminta:
 Hasil:
 
 - ditemukan aset lokal:
-  - `logo.jpeg`
+  - `logo.png`
   - `gambar login.jpg`
 - login diubah memakai `<img>`
 - CSS login diperbarui
@@ -1604,3 +1604,268 @@ Hasil:
 - `frontend/admin/anggota-view.js` sekarang memberi placeholder `YYYY-MM-DD` pada field tanggal lahir
 - atribut `title` juga ditambahkan supaya browser menampilkan petunjuk format saat diperlukan
 - helper text yang sudah ada tetap dipertahankan agar format tetap jelas di browser yang mengabaikan placeholder pada input `date`
+
+## 110) Prompt seratus sepuluh: ubah tombol hapus jadi delete permanen
+
+User meminta:
+
+- di `frontend/admin/kategori.html`, tombol aksi `⌫` pada tabel daftar kategori harus menghapus kategori, bukan menonaktifkan
+- di `frontend/admin/anggota.html`, tombol aksi `⌫` pada tabel daftar anggota juga harus menghapus anggota, bukan menonaktifkan
+
+Hasil:
+
+- `backend/routes/api.php` mengubah `DELETE /api/categories` menjadi `DELETE FROM categories`
+- `backend/routes/api.php` mengubah `DELETE /api/members` menjadi `DELETE FROM members`
+- respons sukses dan gagal diperbarui agar menyebut penghapusan permanen, bukan nonaktif
+- `frontend/admin/kategori.js` dan `frontend/admin/anggota-view.js` memperbarui teks konfirmasi, toast, dan label aksesibilitas agar selaras dengan aksi hapus
+- jika data masih direferensikan tabel lain, endpoint sekarang mengembalikan konflik agar data relasi tidak rusak
+
+## 111) Prompt seratus sebelas: teks nonaktif masih muncul di dialog hapus anggota
+
+User meminta:
+
+- memastikan apakah pemberitahuan hapus anggota masih menyebut nonaktif
+
+Hasil:
+
+- sumber aktif `frontend/admin/anggota-view.js` sudah menggunakan teks hapus permanen
+- saya tambahkan cache-buster pada `frontend/shared/entry.js` dan `frontend/admin/anggota.js` supaya browser tidak memuat modul lama yang masih menampilkan teks nonaktif
+- verifikasi syntax untuk file yang diubah lolos
+
+## 112) Prompt seratus dua belas: ubah logo ke logo.png
+
+User meminta:
+
+- memperbarui logo aplikasi dengan format `logo.png` yang sudah disiapkan
+
+Hasil:
+
+- referensi logo di `index.html`, `frontend/login.html`, `frontend/shared/components.js`, `frontend/shared/sidebar-admin.js`, dan `frontend/shared/sidebar-kepala.js` diganti ke `logo.png`
+- halaman login dan sidebar sekarang memuat aset logo yang baru
+- catatan log juga diselaraskan agar tidak lagi menyebut `logo.jpeg` sebagai aset aktif
+
+## 113) Prompt seratus tiga belas: rapikan input tanggal dan search buku pada form peminjaman
+
+User meminta:
+
+- pada modal `Buat Peminjaman Baru`, posisi input tanggal harus dirapikan supaya teks tanggal rata kiri dan ikon kalender rata kanan
+- daftar buku di modal peminjaman perlu fitur search agar buku lebih mudah ditemukan saat ditambahkan
+
+Hasil:
+
+- `frontend/admin/sirkulasi-view.js` menambahkan kelas khusus pada input tanggal peminjaman dan tanggal kembali
+- `frontend/shared/styles.css` mengatur tampilan input tanggal agar teks tetap rata kiri dan ikon kalender tetap berada di sisi kanan
+- `frontend/admin/sirkulasi-view.js` menambahkan search pada daftar buku di modal peminjaman
+- daftar buku sekarang bisa difilter berdasarkan judul, kode, kategori, atau status tanpa menutup modal
+- perubahan ini berlaku pada modal yang tampil di screenshot peminjaman, bukan halaman katalog buku
+
+## 114) Prompt seratus empat belas: data anggota tidak muncul di form peminjaman
+
+User meminta:
+
+- menanyakan kenapa data anggota sudah ada di halaman anggota, tetapi tidak muncul di form `Buat Peminjaman Baru`
+
+Hasil:
+
+- saya temukan filter frontend di `frontend/admin/sirkulasi-view.js` terlalu ketat karena hanya menerima status `aktif` huruf kecil
+- filter anggota aktif dan buku aktif sekarang memakai pemeriksaan case-insensitive supaya `Aktif` dan `aktif` sama-sama terbaca
+- setelah perbaikan, dropdown anggota pada form peminjaman seharusnya menampilkan data aktif dari backend
+
+## 115) Prompt seratus lima belas: warna chart tren laporan dibuat kontras
+
+User meminta:
+
+- warna chart tren di `frontend/admin/laporan.html` harus dibuat lebih kontras supaya data bar mudah dibedakan
+
+Hasil:
+
+- `frontend/shared/styles.css` mengubah bar peminjaman menjadi gradasi biru yang lebih tegas
+- `frontend/shared/styles.css` mengubah bar pengadaan buku menjadi gradasi oranye agar kontras dengan seri peminjaman
+- warna titik legenda juga disamakan dengan warna bar supaya pembacaan chart lebih cepat
+
+## 116) Prompt seratus enam belas: posisi angka donut kategori diperbaiki
+
+User meminta:
+
+- posisi angka dan teks `Total Buku` di donut kategori pada laporan harus dipusatkan dengan lebih pas
+
+Hasil:
+
+- `frontend/shared/styles.css` mengubah kontainer tengah donut dari grid ke flex column
+- `frontend/shared/styles.css` menghapus margin atas tambahan yang membuat angka dan teks tampak bergeser
+- posisi angka dan label sekarang lebih stabil di tengah ring donut kategori
+
+## 117) Prompt seratus tujuh belas: sidebar kedua role dibuat bisa diminimize
+
+User meminta:
+
+- sidebar untuk role admin dan kepala perpustakaan harus bisa diminimize
+- saat diminimize, sidebar hanya menampilkan icon
+- harus ada tombol untuk menggeser sidebar ke kiri dan mengembalikan sidebar penuh
+
+Hasil:
+
+- `frontend/shared/sidebar-admin.js` dan `frontend/shared/sidebar-kepala.js` menambahkan tombol toggle sidebar
+- `frontend/shared/auth.js` menambahkan state collapse yang disimpan di `localStorage`
+- `frontend/shared/layout-admin.js` dan `frontend/shared/layout-kepala.js` membaca state collapse saat render awal
+- `frontend/shared/styles.css` menambahkan layout sidebar mini, menyembunyikan label teks, dan mempertahankan icon agar tetap terlihat
+- `frontend/shared/entry.js` menyalakan binding toggle supaya tombol collapse berfungsi di semua halaman role
+
+## 118) Prompt seratus delapan belas: tombol collapse sidebar tidak terlihat
+
+User meminta:
+
+- sidebar kepala belum bisa dipakai dengan benar
+- di sidebar admin fitur collapse belum terlihat
+
+Hasil:
+
+- saya temukan tombol collapse sempat terpotong karena sidebar masih `overflow: hidden`
+- `frontend/shared/styles.css` diubah supaya sidebar memakai `overflow: visible`
+- tombol collapse diposisikan di tepi kanan sidebar agar terlihat jelas pada role admin dan kepala
+- perubahan ini tetap memakai state collapse yang sama, jadi perilakunya konsisten di kedua role
+
+## 119) Prompt seratus sembilan belas: sidebar collapse dibuat lebih mirip referensi
+
+User meminta:
+
+- sidebar admin dan kepala perpustakaan masih belum terasa seperti referensi yang dikirim
+- saat diminimize, sidebar harus tampil sebagai rail icon-only yang jelas
+
+Hasil:
+
+- `frontend/shared/styles.css` memperkecil lebar sidebar collapsed agar lebih mirip rail
+- `frontend/shared/styles.css` mengubah tombol collapse menjadi handle vertikal yang lebih menonjol di tengah tepi sidebar
+- `frontend/shared/styles.css` merapikan jarak dan ukuran item saat mode collapsed supaya icon-only lebih rapi dan konsisten
+
+## 120) Prompt seratus dua puluh: tombol collapse kepala dipindah ke kanan atas
+
+User meminta:
+
+- pada sidebar kepala, tombol collapse yang semula di area bawah/menengah harus pindah ke kanan atas seperti referensi
+- saat tombol itu diklik, sidebar harus berubah jadi icon-only di area yang ditandai kuning
+
+Hasil:
+
+- `frontend/shared/styles.css` memindahkan tombol collapse ke kanan atas sidebar
+- `frontend/shared/styles.css` mempertahankan mode icon-only yang sudah ada saat sidebar diklik
+- tampilan sidebar collapsed tetap memakai icon navigasi dan profil ringkas, sehingga fungsi utama tidak hilang
+
+## 121) Prompt seratus dua puluh satu: klik collapse belum memengaruhi sidebar
+
+User meminta:
+
+- tombol collapse sudah pindah ke atas tetapi saat diklik sidebar belum mengecil
+- perubahan harus dicek lagi dengan teliti karena klik belum menghasilkan perubahan visual
+
+Hasil:
+
+- `frontend/shared/auth.js` diubah menjadi binding delegasi pada `document` supaya listener tidak hilang saat shell dirender ulang
+- state collapse sekarang diterapkan ke semua `.app-shell` dan semua tombol `[data-sidebar-toggle]` yang aktif di DOM
+- perilaku collapse tetap bergantung pada `localStorage`, jadi preferensi tetap konsisten walau halaman melakukan render ulang
+
+## 122) Prompt seratus dua puluh dua: class sidebar belum ikut berubah
+
+User meminta:
+
+- setelah tombol collapse diklik, sidebar masih belum konsisten mengecil karena class visualnya belum ikut berubah
+- tampilan harus dibuat benar-benar sesuai dengan referensi gambar 3 dan 4
+
+Hasil:
+
+- `frontend/shared/auth.js` sekarang ikut men-toggle class `.collapsed` pada elemen `.sidebar`
+- `frontend/shared/styles.css` diberi lebar eksplisit untuk keadaan normal dan collapsed supaya perubahan ukuran tidak ambigu
+- state tombol, shell, dan sidebar sekarang tersinkron, jadi ikon dan layout berubah bersama saat klik
+
+## 123) Prompt seratus dua puluh tiga: sidebar admin disamakan dengan sidebar kepala
+
+User meminta:
+
+- sidebar admin dibuat sama seperti sidebar kepala
+- sidebar admin juga harus bisa diminimize dengan perilaku yang sama
+
+Hasil:
+
+- dibuat helper baru `frontend/shared/sidebar-shell.js` untuk merender struktur sidebar dan state collapse yang sama
+- `frontend/shared/sidebar-admin.js` dan `frontend/shared/sidebar-kepala.js` sekarang memakai helper shared tersebut supaya perilaku toggle tidak beda
+- mode collapse admin tetap menyimpan state di `localStorage` dan tetap menampilkan icon-only saat diminimize
+- pengecekan sintaks `node --check` lolos untuk `frontend/shared/sidebar-shell.js`, `frontend/shared/sidebar-admin.js`, dan `frontend/shared/sidebar-kepala.js`
+
+## 124) Prompt seratus dua puluh empat: sidebar admin dihilangkan label REPORTS
+
+User meminta:
+
+- sidebar admin masih belum sama seperti sidebar kepala
+- tampilan admin harus mengikuti pola kepala yang lebih minimal, terutama di bagian label seksi
+
+Hasil:
+
+- `frontend/shared/sidebar-shell.js` diubah supaya label seksi hanya dirender kalau memang ada teksnya
+- `frontend/shared/sidebar-admin.js` tidak lagi mengirim label `REPORTS`, sehingga tampilan admin lebih mirip sidebar kepala
+- pengecekan sintaks `node --check` tetap lolos untuk file sidebar shared yang diubah
+
+## 125) Prompt seratus dua puluh lima: sidebar admin disamakan juga pada bagian bawah profil
+
+User meminta:
+
+- saat pindah halaman, bug di sidebar admin masih terlihat
+- struktur bawah profil admin harus mengikuti sidebar kepala supaya tampilannya seragam
+
+Hasil:
+
+- `frontend/shared/sidebar-admin.js` sekarang juga menampilkan link `Pusat Bantuan` seperti sidebar kepala
+- struktur bawah profil admin jadi lebih dekat dengan sidebar kepala saat mode expanded maupun collapsed
+- pengecekan sintaks `node --check` lolos untuk `frontend/shared/sidebar-admin.js`
+
+## 126) Prompt seratus dua puluh enam: sidebar admin dikembalikan ke bentuk minimal
+
+User meminta:
+
+- bug width sidebar admin saat pindah halaman harus diperbaiki
+- admin tidak perlu diberi opsi tambahan di bawah tombol keluar seperti kepala
+
+Hasil:
+
+- `frontend/shared/sidebar-admin.js` dikembalikan ke struktur minimal tanpa link ekstra di bawah profil
+- sidebar admin tetap memakai helper shared collapse yang sama, jadi state icon-only tidak ikut berubah
+- pengecekan sintaks `node --check` tetap lolos untuk `frontend/shared/sidebar-admin.js`
+
+## 127) Prompt seratus dua puluh tujuh: lebar sidebar admin dikunci saat collapsed
+
+User meminta:
+
+- bug sidebar admin masih muncul saat pindah halaman
+- ketika mode collapsed aktif, lebar sidebar tidak boleh tetap melebar
+
+Hasil:
+
+- `frontend/shared/styles.css` sekarang juga memberi lebar `72px` langsung pada `.sidebar.collapsed`
+- fallback ini membuat sidebar tetap sempit walaupun class `app-shell.sidebar-collapsed` belum tersinkron saat navigasi
+- tampilan collapsed admin sekarang mengikuti bentuk icon-only yang sama seperti sidebar kepala
+
+## 128) Prompt seratus dua puluh delapan: state collapsed dipasang sejak bootstrap halaman
+
+User meminta:
+
+- saat pindah halaman, sidebar admin masih sempat melebar
+- state collapsed harus aktif sejak halaman baru mulai dirender, bukan baru setelah tombol diklik
+
+Hasil:
+
+- `frontend/shared/entry.js` sekarang membaca state collapsed dari `localStorage` sebelum modul halaman diimport
+- `frontend/shared/entry.js` memasang class `sidebar-collapsed` ke `body` lebih awal supaya layout sempit aktif sejak awal
+- `frontend/shared/styles.css` menambahkan fallback selector `body.sidebar-collapsed` untuk shell dan sidebar
+
+## 129) Prompt seratus dua puluh sembilan: breadcrumb dibuat bisa dipakai navigasi
+
+User meminta:
+
+- breadcrumb pada role kepala harus bisa dipakai navigasi
+- breadcrumb harus mengarah ke halaman induk yang benar
+
+Hasil:
+
+- `frontend/kepala-perpustakaan/koleksi.js` mengubah breadcrumb koleksi menjadi link ke `dashboard.html` untuk bagian induknya
+- `frontend/kepala-perpustakaan/semua-dashboard.js` mengubah breadcrumb detail data menjadi link navigasi yang benar ke `dashboard.html`
+- `frontend/shared/styles.css` menambahkan style kecil untuk link breadcrumb agar tetap rapi dan dapat diklik
+- pengecekan sintaks `node --check` lolos untuk `frontend/kepala-perpustakaan/koleksi.js` dan `frontend/kepala-perpustakaan/semua-dashboard.js`

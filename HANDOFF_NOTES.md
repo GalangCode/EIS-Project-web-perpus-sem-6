@@ -1,8 +1,8 @@
 # Handoff Notes — EIS Balangan Frontend
 
-Tanggal catatan: 2026-07-28
+Tanggal catatan: 2026-07-29
 
-Pembaruan terakhir: 2026-07-28 14:50:14
+Pembaruan terakhir: 2026-07-29 20:08:09
 
 ## Tujuan saat ini
 
@@ -1362,3 +1362,260 @@ Perubahan:
 Catatan:
 
 - file `backend/routes/api.php` dan `frontend/kepala-perpustakaan/pengaturan.js` lolos pengecekan sintaks setelah perubahan
+
+## Hapus Permanen Kategori Dan Anggota
+
+Status:
+
+- tombol `⌫` di tabel kategori dan anggota sekarang benar-benar menghapus record dari database
+
+Perubahan:
+
+- `backend/routes/api.php` mengubah `DELETE /api/categories` dari update status menjadi `DELETE FROM categories`
+- `backend/routes/api.php` mengubah `DELETE /api/members` dari update status menjadi `DELETE FROM members`
+- frontend kategori dan anggota memperbarui label aksi, konfirmasi, dan pesan sukses/gagal agar sesuai dengan penghapusan permanen
+- jika data masih dipakai tabel relasi, endpoint kini mengembalikan konflik `409` supaya integritas data tetap terjaga
+
+Catatan:
+
+- perubahan ini membuat aksi `⌫` tidak lagi berfungsi sebagai nonaktifkan
+- relasi database seperti buku atau riwayat peminjaman masih bisa mencegah delete jika record dipakai oleh data lain
+
+## Logo Aplikasi Ke PNG
+
+Status:
+
+- logo aplikasi sekarang memakai `logo.png`
+
+Perubahan:
+
+- `index.html` dan `frontend/login.html` diarahkan ke `logo.png` untuk favicon
+- `frontend/shared/components.js` mengganti sumber logo login ke `logo.png`
+- `frontend/shared/sidebar-admin.js` dan `frontend/shared/sidebar-kepala.js` mengganti logo brand ke `logo.png`
+
+Catatan:
+
+- aset lama `logo.jpeg` sudah tidak dipakai di jalur aktif
+- jika ada halaman lain yang masih memuat logo lama, referensi asetnya perlu disesuaikan ke `logo.png`
+
+## Cache-Buster Untuk Anggota Dan Kategori
+
+Status:
+
+- browser sekarang dipaksa memuat modul terbaru untuk halaman anggota dan kategori
+
+Perubahan:
+
+- `frontend/shared/entry.js` diberi cache-buster pada mapping `category` dan `members`
+- `frontend/admin/anggota.js` diberi cache-buster saat mengimpor `anggota-view.js`
+- ini ditambahkan karena dialog browser masih sempat menampilkan teks lama yang menyebut nonaktif
+
+Catatan:
+
+- perubahan ini tidak mengubah perilaku delete, hanya memastikan browser tidak memakai bundle lama
+- jika ada halaman lain yang masih menampilkan teks lama, pola cache-buster yang sama bisa diterapkan di loader modulnya
+
+## Form Peminjaman Dengan Search Buku
+
+Status:
+
+- modal `Buat Peminjaman Baru` sekarang lebih mudah dipakai untuk memilih buku
+
+Perubahan:
+
+- input tanggal peminjaman dan tanggal kembali diberi styling khusus supaya teks tanggal rata kiri dan ikon kalender rata kanan
+- daftar buku di modal peminjaman diberi search live berdasarkan judul, kode, kategori, dan status
+- hasil search hanya memfilter daftar buku di dalam modal, jadi form tetap terbuka dan interaksi lain tidak terganggu
+
+Catatan:
+
+- perubahan ini ditujukan untuk modal peminjaman di `frontend/admin/sirkulasi-view.js`
+- jika nanti form lain juga memakai date input yang sama, gaya kalendernya sudah bisa dipakai ulang dari CSS global
+
+## Anggota Aktif Di Form Peminjaman
+
+Status:
+
+- dropdown anggota di modal peminjaman sekarang tidak lagi kosong jika data anggota aktif ada di database
+
+Perubahan:
+
+- filter anggota aktif di `frontend/admin/sirkulasi-view.js` diubah menjadi case-insensitive
+- filter buku aktif juga disamakan agar lebih tahan terhadap variasi kapitalisasi status dari backend
+- masalah yang terlihat di screenshot berasal dari perbandingan string status yang terlalu ketat
+
+Catatan:
+
+- perbaikan ini menjaga modal peminjaman tetap kompatibel dengan data `Aktif/aktif` dari backend
+- jika backend nanti mengubah label status lagi, pola normalisasi yang sama bisa dipakai ulang
+
+## Warna Chart Tren Laporan
+
+Status:
+
+- seri peminjaman dan pengadaan pada chart tren laporan sekarang lebih kontras
+
+Perubahan:
+
+- `frontend/shared/styles.css` mengubah warna bar peminjaman menjadi biru yang lebih tegas
+- `frontend/shared/styles.css` mengubah warna bar pengadaan menjadi oranye agar mudah dibedakan
+- `legend-dot` untuk kedua seri juga disinkronkan dengan warna bar
+
+Catatan:
+
+- perubahan ini khusus untuk chart tren bulanan di halaman laporan
+- kalau nanti warna chart lain perlu diseragamkan, pasangan warna yang sama bisa dipakai ulang
+
+## Posisi Tengah Donut Kategori
+
+Status:
+
+- angka total buku dan label `Total Buku` di donut kategori sekarang lebih presisi di tengah
+
+Perubahan:
+
+- `frontend/shared/styles.css` mengubah container isi donut kategori menjadi flex column
+- margin tambahan pada teks tengah dihapus supaya angka dan label tidak terdorong ke atas
+- alignment tengah sekarang lebih stabil di berbagai ukuran layar
+
+Catatan:
+
+- perubahan ini khusus untuk card kategori pada laporan
+- bila ring donut diubah ukurannya nanti, posisi tengahnya masih mengikuti aturan flex yang baru
+
+## Sidebar Bisa Diminimize
+
+Status:
+
+- sidebar admin dan kepala perpustakaan sekarang bisa dikecilkan menjadi mode icon-only
+
+Perubahan:
+
+- `frontend/shared/sidebar-admin.js` dan `frontend/shared/sidebar-kepala.js` menambahkan tombol toggle di sisi kanan sidebar
+- `frontend/shared/auth.js` menyimpan state collapse di `localStorage` supaya preferensi tetap konsisten antar halaman
+- `frontend/shared/layout-admin.js` dan `frontend/shared/layout-kepala.js` membaca state collapse saat render awal
+- `frontend/shared/styles.css` menyembunyikan label teks, nama profil, dan label grup saat sidebar dalam mode mini
+- `frontend/shared/entry.js` mengikat aksi toggle supaya tombol collapse bekerja di semua halaman role
+
+Catatan:
+
+- mode mini tetap menampilkan icon navigasi, logo, dan tombol logout agar fungsi utama tidak hilang
+- jika nanti perlu auto-collapse di layar kecil, state yang sama bisa dipakai sebagai basis
+
+## Tombol Collapse Sidebar Terlihat
+
+Status:
+
+- tombol collapse sekarang terlihat jelas di tepi sidebar untuk admin dan kepala
+
+Perubahan:
+
+- `frontend/shared/styles.css` mengubah sidebar dari `overflow: hidden` menjadi `overflow: visible`
+- tombol collapse diposisikan ulang di tepi kanan sidebar supaya tidak terpotong
+- perilaku collapse tetap memakai state yang sama seperti sebelumnya, hanya posisinya yang dirapikan
+
+Catatan:
+
+- penyesuaian ini ditujukan untuk memperbaiki kasus tombol collapse yang tidak tampak di beberapa halaman
+- jika nanti perlu ukuran tombol berbeda, tinggal ubah class `.sidebar-toggle`
+
+## Handle Collapse Sidebar Lebih Jelas
+
+Status:
+
+- sidebar collapsed sekarang lebih terasa seperti rail icon-only dengan handle yang menonjol
+
+Perubahan:
+
+- `frontend/shared/styles.css` memperkecil lebar sidebar saat collapse supaya tampil sebagai rail sempit
+- `frontend/shared/styles.css` memindahkan tombol collapse menjadi tab vertikal di tengah tepi sidebar
+- `frontend/shared/styles.css` merapikan ukuran dan perataan item icon-only agar lebih konsisten
+
+Catatan:
+
+- perilaku collapse tetap memakai state `localStorage` yang sama, jadi preferensi user tidak berubah
+- kalau nanti ingin meniru referensi lebih dekat, penyesuaian berikutnya tinggal mengubah ukuran dan posisi `.sidebar-toggle`
+
+## Tombol Collapse Pindah ke Kanan Atas
+
+Status:
+
+- tombol collapse di sidebar kepala dan admin sekarang berada di area kanan atas seperti referensi
+
+Perubahan:
+
+- `frontend/shared/styles.css` memindahkan `.sidebar-toggle` ke bagian kanan atas sidebar
+- mode collapse tetap aktif saat tombol ditekan, sehingga sidebar berubah menjadi icon-only
+- state collapse dan perilaku sebelumnya tidak diubah, hanya posisi tombolnya yang disesuaikan
+
+Catatan:
+
+- ini khusus untuk memenuhi referensi posisi tombol yang ditandai warna hijau ke merah
+- jika nanti perlu diseragamkan lagi dengan ukuran referensi, tinggal atur ulang properti `.sidebar-toggle`
+
+## Collapse Tetap Aktif Setelah Render Ulang
+
+Status:
+
+- tombol collapse sekarang tetap responsif walau halaman merender ulang shell setelah data dimuat
+
+Perubahan:
+
+- `frontend/shared/auth.js` mengganti binding tombol menjadi delegasi klik di `document`
+- state collapse diterapkan ke seluruh `.app-shell` dan seluruh tombol collapse yang ada di DOM
+- state visual tetap disimpan di `localStorage`, sehingga refresh atau rerender tidak mematikan preferensi user
+
+Catatan:
+
+- ini ditujukan untuk mengatasi kasus tombol terlihat tetapi tidak melakukan perubahan saat diklik
+- kalau nanti ada halaman baru yang juga memakai shell, binding ini tetap bisa dipakai tanpa penyesuaian besar
+
+## Class Sidebar Ikut Tersinkron
+
+Status:
+
+- state collapse sekarang juga mengubah class `.collapsed` pada elemen sidebar, jadi perubahan ukuran dan visibilitas benar-benar muncul
+
+Perubahan:
+
+- `frontend/shared/auth.js` men-toggle class `.collapsed` pada `.sidebar` setiap kali state berubah
+- `frontend/shared/styles.css` memberi lebar eksplisit untuk keadaan normal dan collapsed agar layout tidak bergantung pada style implisit
+- state tombol, shell, dan sidebar sekarang bergerak serempak ketika user klik toggle
+
+Catatan:
+
+- ini memperbaiki kasus ketika tombol tampak berubah tetapi sidebar tidak benar-benar mengecil
+- bila perlu penyesuaian visual berikutnya, fokus utama sekarang tinggal ke spacing dan posisi ikon
+
+## Sidebar Admin Disamakan
+
+Status:
+
+- sidebar admin sekarang memakai pola render collapse yang sama dengan sidebar kepala
+
+Perubahan:
+
+- dibuat helper `frontend/shared/sidebar-shell.js` untuk menyatukan struktur sidebar, tombol toggle, dan state collapse
+- `frontend/shared/sidebar-admin.js` dan `frontend/shared/sidebar-kepala.js` sekarang memanggil helper shared tersebut
+- link bantuan kepala tetap dipertahankan, sementara admin tidak lagi menampilkan label grup `REPORTS`
+- mode minimize admin tetap bergantung pada `localStorage`, jadi perilakunya konsisten setelah refresh atau pindah halaman
+- `frontend/shared/styles.css` menambahkan fallback lebar 72px langsung pada `.sidebar.collapsed` supaya sidebar tidak melebar saat class shell belum tersinkron
+- `frontend/shared/entry.js` sekarang memasang state collapsed lebih awal ke `body` supaya halaman baru langsung mengikuti layout sempit
+- breadcrumb di role kepala sekarang berupa link navigasi ke halaman induk yang sesuai
+
+Catatan:
+
+- refactor ini menjaga perilaku collapse yang sudah ada sambil mengurangi duplikasi antara dua role
+- jika nanti ada perubahan pada tampilan sidebar, cukup sentuh helper shared agar admin dan kepala tetap sinkron
+
+## File penting yang terakhir berubah
+
+- `frontend/shared/sidebar-admin.js`
+- `frontend/shared/sidebar-kepala.js`
+- `frontend/shared/sidebar-shell.js`
+- `frontend/shared/styles.css`
+- `frontend/shared/entry.js`
+- `frontend/kepala-perpustakaan/koleksi.js`
+- `frontend/kepala-perpustakaan/semua-dashboard.js`
+- `CONVERSATION_LOG.md`
+- `HANDOFF_NOTES.md`
