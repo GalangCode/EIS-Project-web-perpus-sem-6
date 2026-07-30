@@ -1,5 +1,5 @@
 import { apiFetch } from "../shared/api.js";
-import { escapeHtml, renderDocument, stat } from "../shared/components.js";
+import { escapeHtml, renderDocument, stat, renderPagination } from "../shared/components.js";
 import { renderKepalaShell } from "../shared/layout-kepala.js";
 
 const PAGE_SIZE = 10;
@@ -307,6 +307,19 @@ function renderToolbar() {
   </div>`;
 }
 
+function buildRecoPagination() {
+  const filtered = getFilteredBooks();
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const current = Math.min(Math.max(1, state.page), totalPages);
+  return renderPagination(filtered.length, current, PAGE_SIZE, {
+    pageAttr: "data-reco-page",
+    btnClass: "all-page-btn",
+    showSummary: false,
+    useArrows: true,
+    useEllipsis: true
+  });
+}
+
 function renderTable() {
   const filtered = getFilteredBooks();
   const pageData = getPageItems(filtered);
@@ -336,30 +349,6 @@ function renderTable() {
 
   const showStart = filtered.length === 0 ? 0 : pageData.start + 1;
   const showEnd = pageData.end;
-  const totalPages = pageData.totalPages;
-  const current = pageData.page;
-  const paginationButtons = [];
-
-  if (totalPages > 1) {
-    paginationButtons.push(`<button class="all-page-btn" type="button" data-reco-page="${Math.max(1, current - 1)}">‹</button>`);
-    paginationButtons.push(`<button class="all-page-btn ${current === 1 ? "active" : ""}" type="button" data-reco-page="1">1</button>`);
-    if (current > 3) {
-      paginationButtons.push('<span class="all-ellipsis">...</span>');
-    }
-    const middleStart = Math.max(2, current - 1);
-    const middleEnd = Math.min(totalPages - 1, current + 1);
-    for (let page = middleStart; page <= middleEnd; page += 1) {
-      if (page === 1 || page === totalPages) continue;
-      paginationButtons.push(`<button class="all-page-btn ${current === page ? "active" : ""}" type="button" data-reco-page="${page}">${page}</button>`);
-    }
-    if (current < totalPages - 2) {
-      paginationButtons.push('<span class="all-ellipsis">...</span>');
-    }
-    if (totalPages > 1) {
-      paginationButtons.push(`<button class="all-page-btn ${current === totalPages ? "active" : ""}" type="button" data-reco-page="${totalPages}">${totalPages}</button>`);
-    }
-    paginationButtons.push(`<button class="all-page-btn" type="button" data-reco-page="${Math.min(totalPages, current + 1)}">›</button>`);
-  }
 
   return `<section class="all-card">
     <div class="all-card-head" style="justify-content:flex-start;padding-top:14px">
@@ -387,7 +376,7 @@ function renderTable() {
     </div>
     <div class="all-footer">
       <div class="all-footer-info">Menampilkan ${showStart} - ${showEnd} dari ${formatCount(filtered.length)} buku yang dianalisis</div>
-      <div class="all-pagination">${paginationButtons.join("")}</div>
+      <div class="all-pagination">${buildRecoPagination()}</div>
     </div>
   </section>`;
 }

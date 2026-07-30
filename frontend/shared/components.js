@@ -100,7 +100,13 @@ export function stat(kicker, value, note, icon = "▣", tone = "teal", tag = "")
   </div>`;
 }
 
-export function panel(title, badge, actions, body, footer = true) {
+export function panel(title, badge = "", actions = "", body = "", footer = "") {
+  let footerHtml = "";
+  if (footer === true) {
+    footerHtml = `<div class="pagination"><span>Menampilkan 1 sampai 5 dari 24 data</span><div class="pages"><button class="page-btn">‹</button><button class="page-btn active">1</button><button class="page-btn">2</button><button class="page-btn">3</button><button class="page-btn">›</button></div></div>`;
+  } else if (typeof footer === "string") {
+    footerHtml = footer;
+  }
   return `<section class="panel">
     <div class="panel-toolbar">
       <div class="panel-title-wrap">
@@ -110,25 +116,151 @@ export function panel(title, badge, actions, body, footer = true) {
       <div class="toolbar-actions">${actions || ""}</div>
     </div>
     ${body}
-    ${footer ? `<div class="pagination"><span>Menampilkan 1 sampai 5 dari 24 data</span><div class="pages"><button class="page-btn">‹</button><button class="page-btn active">1</button><button class="page-btn">2</button><button class="page-btn">3</button><button class="page-btn">›</button></div></div>` : ""}
+    ${footerHtml}
   </section>`;
 }
 
+export function renderPagination(totalItems, currentPage, pageSize, opts = {}) {
+  const pageAttr = opts.pageAttr || "data-page";
+  const btnClass = opts.btnClass || "page-btn";
+  const activeClass = opts.activeClass || "active";
+  const showSummary = opts.showSummary !== false;
+  const useArrows = opts.useArrows !== false;
+  const useEllipsis = opts.useEllipsis === true;
+
+  const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
+  const current = Math.min(Math.max(currentPage, 1), totalPages);
+  const start = totalItems === 0 ? 0 : (current - 1) * pageSize + 1;
+  const end = Math.min(totalItems, current * pageSize);
+
+  let pagesHtml = "";
+
+  if (useEllipsis) {
+    const buttons = [];
+    
+    if (useArrows) {
+      buttons.push(`<button class="${btnClass}" type="button" ${pageAttr}="prev" ${current <= 1 ? "disabled" : ""}>‹</button>`);
+    }
+
+    buttons.push(`<button class="${btnClass} ${current === 1 ? activeClass : ""}" type="button" ${pageAttr}="1">1</button>`);
+
+    if (totalPages > 1) {
+      let rangeStart = Math.max(2, current - 1);
+      let rangeEnd = Math.min(totalPages - 1, current + 1);
+
+      if (rangeStart > 2) {
+        buttons.push(`<span class="all-ellipsis">...</span>`);
+      }
+
+      for (let page = rangeStart; page <= rangeEnd; page++) {
+        buttons.push(`<button class="${btnClass} ${current === page ? activeClass : ""}" type="button" ${pageAttr}="${page}">${page}</button>`);
+      }
+
+      if (rangeEnd < totalPages - 1) {
+        buttons.push(`<span class="all-ellipsis">...</span>`);
+      }
+
+      buttons.push(`<button class="${btnClass} ${current === totalPages ? activeClass : ""}" type="button" ${pageAttr}="${totalPages}">${totalPages}</button>`);
+    }
+
+    if (useArrows) {
+      buttons.push(`<button class="${btnClass}" type="button" ${pageAttr}="next" ${current >= totalPages ? "disabled" : ""}>›</button>`);
+    }
+
+    pagesHtml = buttons.join("");
+  } else {
+    const buttons = [];
+    
+    if (useArrows) {
+      buttons.push(`<button class="${btnClass}" type="button" ${pageAttr}="prev" ${current <= 1 ? "disabled" : ""}>‹</button>`);
+    }
+
+    for (let page = 1; page <= totalPages; page++) {
+      buttons.push(`<button class="${btnClass} ${page === current ? activeClass : ""}" type="button" ${pageAttr}="${page}">${page}</button>`);
+    }
+
+    if (useArrows) {
+      buttons.push(`<button class="${btnClass}" type="button" ${pageAttr}="next" ${current >= totalPages ? "disabled" : ""}>›</button>`);
+    }
+
+    pagesHtml = buttons.join("");
+  }
+
+  const summaryHtml = showSummary
+    ? `<span>Menampilkan ${start} sampai ${end} dari ${totalItems} data</span>`
+    : "";
+
+  return `<div class="pagination">
+    ${summaryHtml}
+    <div class="pages">
+      ${pagesHtml}
+    </div>
+  </div>`;
+}
+
 export function dataTable(headers, rows, opts = {}) {
+  if (!rows || rows.length === 0) {
+    const emptyText = opts.emptyText || "Tidak ada data.";
+    return `<div class="table-empty" style="padding:24px 20px;color:#6e7979">${escapeHtml(emptyText)}</div>`;
+  }
+
   const withActions = opts.actions !== false;
   const widths = opts.widths || [];
+
+  const headerCols = headers.map((h, i) => {
+    const text = typeof h === "object" ? (h.text || "") : h;
+    const width = typeof h === "object" ? (h.width || widths[i] || "auto") : (widths[i] || "auto");
+    return `<th style="width:${escapeHtml(width)}">${escapeHtml(text)}</th>`;
+  }).join("");
+
+  const actionsHeader = withActions ? `<th style="width:${escapeHtml(opts.actionsWidth || "120px")}">AKSI</th>` : "";
+
+  const cellRenderer = opts.cellRenderer || ((cell, colIndex) => {
+    const str = String(cell === null || cell === undefined ? "" : cell);
+    const isCode = str.startsWith("BK-") || str.startsWith("KAT-") || str.startsWith("TRX-") || str.startsWith("ANG-");
+    if (colIndex === 0 || colIndex === 1 || isCode) {
+      return `<strong>${escapeHtml(str)}</strong>`;
+    }
+    return status(str);
+  });
+
+  const bodyRows = rows.map((row, rowIndex) => {
+    if (typeof opts.rowRenderer === "function") {
+      return opts.rowRenderer(row, rowIndex);
+    }
+
+    let cellsHtml = "";
+    if (Array.isArray(row)) {
+      cellsHtml = row.map((cell, colIndex) => `<td>${cellRenderer(cell, colIndex, row, rowIndex)}</td>`).join("");
+    } else if (typeof row === "object" && row !== null) {
+      const keys = opts.keys || Object.keys(row);
+      cellsHtml = keys.map((key, colIndex) => {
+        const cell = row[key];
+        return `<td>${cellRenderer(cell, colIndex, row, rowIndex)}</td>`;
+      }).join("");
+    }
+
+    let actionsCell = "";
+    if (withActions) {
+      if (typeof opts.actions === "function") {
+        actionsCell = `<td>${opts.actions(row, rowIndex)}</td>`;
+      } else {
+        const id = row.id !== undefined ? row.id : (Array.isArray(row) ? row[0] : "");
+        const editAction = opts.editAction || "edit";
+        const deleteAction = opts.deleteAction || "delete";
+        actionsCell = `<td><div class="actions">
+          <button class="row-btn" data-action="${escapeHtml(editAction)}" data-id="${escapeHtml(String(id))}" aria-label="Edit">✎</button>
+          <button class="row-btn" data-action="${escapeHtml(deleteAction)}" data-id="${escapeHtml(String(id))}" aria-label="Hapus">⌫</button>
+        </div></td>`;
+      }
+    }
+
+    return `<tr>${cellsHtml}${actionsCell}</tr>`;
+  }).join("");
+
   return `<table class="data-table">
-    <thead><tr>${headers
-      .map((h, i) => `<th style="width:${widths[i] || "auto"}">${escapeHtml(h)}</th>`)
-      .join("")}${withActions ? '<th style="width:120px">AKSI</th>' : ""}</tr></thead>
-    <tbody>${rows
-      .map(
-        (row) =>
-          `<tr>${row
-            .map((cell, i) => `<td>${i === 1 || i === 0 || String(cell).includes("KAT-") ? `<strong>${escapeHtml(cell)}</strong>` : status(cell)}</td>`)
-            .join("")}${withActions ? `<td><div class="actions"><button class="row-btn">✎</button><button class="row-btn">⌫</button></div></td>` : ""}</tr>`,
-      )
-      .join("")}</tbody>
+    <thead><tr>${headerCols}${actionsHeader}</tr></thead>
+    <tbody>${bodyRows}</tbody>
   </table>`;
 }
 

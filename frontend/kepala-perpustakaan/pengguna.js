@@ -1,5 +1,5 @@
 import { apiFetch } from "../shared/api.js";
-import { escapeHtml, renderDocument, stat, status } from "../shared/components.js";
+import { escapeHtml, renderDocument, stat, status, dataTable, renderPagination } from "../shared/components.js";
 import { renderKepalaShell } from "../shared/layout-kepala.js";
 
 const PAGE_SIZE = 8;
@@ -94,57 +94,53 @@ function renderToolbar() {
   </div>`;
 }
 
-function renderTableBody() {
+function buildTable() {
   const items = getFilteredItems();
   const totalPages = Math.max(1, Math.ceil(items.length / PAGE_SIZE));
   const page = Math.min(Math.max(1, state.page), totalPages);
   const start = (page - 1) * PAGE_SIZE;
   const visible = items.slice(start, start + PAGE_SIZE);
 
-  if (!visible.length) {
-    return '<tr><td colspan="6" style="padding:24px 14px;color:#6e7979;text-align:center">Belum ada pengguna yang cocok dengan filter.</td></tr>';
-  }
-
-  return visible
-    .map((item, index) => {
-      const roleCode = String(item.role?.code || "");
-      const roleTone = getRoleTone(roleCode);
-      return `<tr>
-        <td>${start + index + 1}</td>
-        <td>
-          <strong>${escapeHtml(item.full_name || "-")}</strong><br>
-          <span style="color:#6e7979;font-size:11px">${escapeHtml(item.username || "-")}</span>
-        </td>
-        <td>
-          <span class="pill ${roleTone}">${escapeHtml(getRoleLabel(roleCode))}</span>
-        </td>
-        <td>
-          ${escapeHtml(item.email || "-")}<br>
-          <span style="color:#6e7979;font-size:11px">${escapeHtml(item.unit || item.phone || "-")}</span>
-        </td>
-        <td>${status(item.status === "aktif" ? "Aktif" : "Nonaktif")}</td>
-        <td>${escapeHtml(formatDateTime(item.last_login_at))}</td>
-      </tr>`;
-    })
-    .join("");
+  return dataTable(
+    [
+      { text: "NO", width: "64px" },
+      { text: "NAMA PENGGUNA", width: "28%" },
+      { text: "PERAN", width: "18%" },
+      { text: "EMAIL / UNIT", width: "30%" },
+      { text: "STATUS", width: "10%" },
+      { text: "LOGIN TERAKHIR", width: "14%" }
+    ],
+    visible.map((item, index) => [
+      start + index + 1,
+      `<strong>${escapeHtml(item.full_name || "-")}</strong><br><span style="color:#6e7979;font-size:11px">${escapeHtml(item.username || "-")}</span>`,
+      `<span class="pill ${getRoleTone(item.role?.code)}">${escapeHtml(getRoleLabel(item.role?.code))}</span>`,
+      `${escapeHtml(item.email || "-")}<br><span style="color:#6e7979;font-size:11px">${escapeHtml(item.unit || item.phone || "-")}</span>`,
+      item.status === "aktif" ? "Aktif" : "Nonaktif",
+      formatDateTime(item.last_login_at)
+    ]),
+    {
+      emptyText: "Belum ada pengguna yang cocok dengan filter.",
+      actions: false,
+      cellRenderer: (cell, colIndex) => {
+        if ([1, 2, 3].includes(colIndex)) {
+          return cell;
+        }
+        if (colIndex === 4) {
+          return status(String(cell));
+        }
+        return escapeHtml(cell);
+      }
+    }
+  );
 }
 
-function renderPagination() {
+function buildPagination() {
   const items = getFilteredItems();
-  const totalPages = Math.max(1, Math.ceil(items.length / PAGE_SIZE));
-  const current = Math.min(Math.max(1, state.page), totalPages);
-  const start = items.length === 0 ? 0 : (current - 1) * PAGE_SIZE + 1;
-  const end = Math.min(items.length, current * PAGE_SIZE);
-  const pages = Array.from({ length: totalPages }, (_, index) => index + 1)
-    .map((page) => `<button class="page-btn ${page === current ? "active" : ""}" type="button" data-user-page="${page}">${page}</button>`)
-    .join("");
-
-  return `<span>Menampilkan ${start}-${end} dari ${formatCount(items.length)} pengguna</span>
-    <div class="pages">
-      <button class="page-btn" type="button" data-user-page="prev">‹</button>
-      ${pages}
-      <button class="page-btn" type="button" data-user-page="next">›</button>
-    </div>`;
+  return renderPagination(items.length, state.page, PAGE_SIZE, {
+    pageAttr: "data-user-page",
+    showSummary: true,
+    useArrows: true
+  });
 }
 
 function renderTable() {
@@ -156,30 +152,10 @@ function renderTable() {
       </div>
       ${renderToolbar()}
     </div>
-    <div class="collection-table-wrap">
-      <table class="collection-table">
-        <colgroup>
-          <col style="width:64px">
-          <col style="width:28%">
-          <col style="width:18%">
-          <col style="width:30%">
-          <col style="width:10%">
-          <col style="width:14%">
-        </colgroup>
-        <thead>
-          <tr>
-            <th>NO</th>
-            <th>NAMA PENGGUNA</th>
-            <th>PERAN</th>
-            <th>EMAIL / UNIT</th>
-            <th>STATUS</th>
-            <th>LOGIN TERAKHIR</th>
-          </tr>
-        </thead>
-        <tbody id="users-table-body">${renderTableBody()}</tbody>
-      </table>
+    <div class="collection-table-wrap" id="users-table-wrap">
+      ${buildTable()}
     </div>
-    <div class="pagination collection-pagination" id="users-pagination-wrap">${renderPagination()}</div>
+    <div id="users-pagination-wrap">${buildPagination()}</div>
   </section>`;
 }
 
@@ -220,16 +196,16 @@ function renderPage() {
 }
 
 function updateUsersView() {
-  const tableBody = document.getElementById("users-table-body");
+  const tableWrap = document.getElementById("users-table-wrap");
   const paginationWrap = document.getElementById("users-pagination-wrap");
   const totalBadge = document.querySelector("[data-user-total]");
 
-  if (tableBody) {
-    tableBody.innerHTML = renderTableBody();
+  if (tableWrap) {
+    tableWrap.innerHTML = buildTable();
   }
 
   if (paginationWrap) {
-    paginationWrap.innerHTML = renderPagination();
+    paginationWrap.innerHTML = buildPagination();
   }
 
   if (totalBadge) {

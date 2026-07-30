@@ -1,5 +1,5 @@
 import { apiFetch } from "../shared/api.js";
-import { assetPath, escapeHtml, renderDocument, stat } from "../shared/components.js";
+import { assetPath, escapeHtml, renderDocument, stat, renderPagination } from "../shared/components.js";
 import { renderKepalaShell } from "../shared/layout-kepala.js";
 
 const PAGE_SIZE = 8;
@@ -286,22 +286,13 @@ function renderTableBody() {
   return rows || '<tr><td colspan="7" class="collection-empty-row">Belum ada data yang cocok dengan filter.</td></tr>';
 }
 
-function renderCollectionPagination() {
+function buildCollectionPagination() {
   const filteredBooks = getFilteredBooks();
-  const totalPages = Math.max(1, Math.ceil(filteredBooks.length / PAGE_SIZE));
-  const page = Math.min(Math.max(1, state.page), totalPages);
-  const start = (page - 1) * PAGE_SIZE;
-  const pagination = [];
-  if (totalPages > 1) {
-    pagination.push(`<button class="page-btn" type="button" data-collection-page="prev">‹</button>`);
-    for (let index = 1; index <= totalPages; index += 1) {
-      pagination.push(`<button class="page-btn ${index === page ? "active" : ""}" type="button" data-collection-page="${index}">${index}</button>`);
-    }
-    pagination.push(`<button class="page-btn" type="button" data-collection-page="next">›</button>`);
-  }
-
-  return `<span>Menampilkan ${filteredBooks.length ? start + 1 : 0}-${Math.min(start + PAGE_SIZE, filteredBooks.length)} dari ${filteredBooks.length} buku</span>
-      <div class="pages">${pagination.join("")}</div>`;
+  return renderPagination(filteredBooks.length, state.page, PAGE_SIZE, {
+    pageAttr: "data-collection-page",
+    showSummary: true,
+    useArrows: true
+  });
 }
 
 function renderTable() {
@@ -347,7 +338,7 @@ function renderTable() {
       </table>
     </div>
     <div class="pagination collection-pagination" id="collection-pagination-wrap">
-      ${renderCollectionPagination()}
+      ${buildCollectionPagination()}
     </div>
   </section>`;
 }
@@ -397,7 +388,7 @@ function updateCollectionView() {
   }
 
   if (paginationWrap) {
-    paginationWrap.innerHTML = renderCollectionPagination();
+    paginationWrap.innerHTML = buildCollectionPagination();
   }
 }
 

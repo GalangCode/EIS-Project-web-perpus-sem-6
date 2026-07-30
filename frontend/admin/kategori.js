@@ -33,7 +33,7 @@ function categoryModal() {
 */
 
 import { apiFetch } from "../shared/api.js";
-import { escapeHtml, field, renderDocument, stat } from "../shared/components.js?v=20260727";
+import { escapeHtml, field, renderDocument, stat, dataTable, renderPagination, panel } from "../shared/components.js?v=20260727";
 import { renderAdminShell } from "../shared/layout-admin.js";
 
 const state = {
@@ -85,49 +85,32 @@ function buildStats(items) {
 }
 
 function buildTable(items) {
-  if (!items.length) {
-    return '<div class="table-empty" style="padding:24px 20px;color:#6e7979">Tidak ada data kategori.</div>';
-  }
-
-  const rows = items.map((item, index) => `<tr>
-    <td>${index + 1}</td>
-    <td><strong>${escapeHtml(item.code)}</strong></td>
-    <td><strong>${escapeHtml(item.name)}</strong></td>
-    <td>${escapeHtml(item.description || "-")}</td>
-    <td>${statusPill(item.status)}</td>
-    <td><div class="actions">
-      <button class="row-btn" data-action="edit" data-id="${item.id}" aria-label="Edit kategori">✎</button>
-      <button class="row-btn" data-action="delete" data-id="${item.id}" aria-label="Hapus kategori">⌫</button>
-    </div></td>
-  </tr>`).join("");
-
-  return `<table class="data-table">
-    <thead><tr>
-      <th style="width:72px">NO</th>
-      <th style="width:128px">ID</th>
-      <th>NAMA KATEGORI</th>
-      <th>DESKRIPSI</th>
-      <th style="width:128px">STATUS</th>
-      <th style="width:120px">AKSI</th>
-    </tr></thead>
-    <tbody>${rows}</tbody>
-  </table>`;
-}
-
-function buildPagination(total) {
-  const totalPages = Math.max(1, Math.ceil(total / state.pageSize));
-  const current = Math.min(Math.max(state.page, 1), totalPages);
-  const start = total === 0 ? 0 : (current - 1) * state.pageSize + 1;
-  const end = Math.min(total, current * state.pageSize);
-
-  return `<div class="pagination">
-    <span>Menampilkan ${start} sampai ${end} dari ${total} data</span>
-    <div class="pages">
-      <button class="page-btn" data-page="prev" ${current <= 1 ? "disabled" : ""}>‹</button>
-      ${Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => `<button class="page-btn ${page === current ? "active" : ""}" data-page="${page}">${page}</button>`).join("")}
-      <button class="page-btn" data-page="next" ${current >= totalPages ? "disabled" : ""}>›</button>
-    </div>
-  </div>`;
+  return dataTable(
+    [
+      { text: "NO", width: "72px" },
+      { text: "ID", width: "128px" },
+      "NAMA KATEGORI",
+      "DESKRIPSI",
+      { text: "STATUS", width: "128px" }
+    ],
+    items.map((item, index) => [
+      (state.page - 1) * state.pageSize + index + 1,
+      item.code,
+      item.name,
+      item.description || "-",
+      item.status
+    ]),
+    {
+      emptyText: "Tidak ada data kategori.",
+      actions: (row, index) => {
+        const item = items[index];
+        return `<div class="actions">
+          <button class="row-btn" data-action="edit" data-id="${item.id}" aria-label="Edit kategori">✎</button>
+          <button class="row-btn" data-action="delete" data-id="${item.id}" aria-label="Hapus kategori">⌫</button>
+        </div>`;
+      }
+    }
+  );
 }
 
 function renderShell() {
@@ -147,29 +130,25 @@ function renderShell() {
         </div>`
       : buildStats(items);
 
+  const paginationHtml = renderPagination(items.length, state.page, state.pageSize);
+
   const panelContent = state.loading
-    ? '<section class="panel" id="category-panel"><div style="padding:24px 20px;color:#6e7979">Memuat kategori...</div></section>'
+    ? panel("Daftar Kategori", "", "", '<div style="padding:24px 20px;color:#6e7979">Memuat kategori...</div>', "", "category-panel")
     : state.error
-      ? `<section class="panel" id="category-panel"><div style="padding:24px 20px;color:#ba1a1a">${escapeHtml(state.error)}</div></section>`
-      : `<section class="panel" id="category-panel">
-          <div class="panel-toolbar">
-            <div class="panel-title-wrap">
-              <h2 class="panel-title">Daftar Kategori</h2>
-              <span class="pill teal" data-category-total>${state.summary.total} TOTAL</span>
-            </div>
-            <div class="toolbar-actions">
-              <button class="btn primary" id="open-category-modal">＋ TAMBAH KATEGORI</button>
-              <label class="search">
-                <span>⌕</span>
-                <input class="search-field" id="category-search" type="search" placeholder="Cari..." value="${escapeHtml(state.query)}" />
-              </label>
-              <button class="btn" type="button" id="open-category-filter">☰</button>
-            </div>
-          </div>
-          ${buildFilterLayer()}
-          <div id="category-table-wrap">${buildTable(pageItems)}</div>
-          <div id="category-pagination-wrap">${buildPagination(items.length)}</div>
-        </section>`;
+      ? panel("Daftar Kategori", "", "", `<div style="padding:24px 20px;color:#ba1a1a">${escapeHtml(state.error)}</div>`, "", "category-panel")
+      : panel(
+          "Daftar Kategori",
+          `${state.summary.total} TOTAL`,
+          `<button class="btn primary" id="open-category-modal">＋ TAMBAH KATEGORI</button>
+           <label class="search">
+             <span>⌕</span>
+             <input class="search-field" id="category-search" type="search" placeholder="Cari..." value="${escapeHtml(state.query)}" />
+           </label>
+           <button class="btn" type="button" id="open-category-filter">☰</button>`,
+          `${buildFilterLayer()}
+           <div id="category-table-wrap">${buildTable(pageItems)}</div>`,
+          `<div id="category-pagination-wrap">${paginationHtml}</div>`
+        );
 
   renderDocument(
     "Manajemen Kategori Buku",
