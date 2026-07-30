@@ -11,6 +11,16 @@ require_once __DIR__ . '/src/Http/Request.php';
 require_once __DIR__ . '/src/Http/Response.php';
 require_once __DIR__ . '/src/Http/Router.php';
 require_once __DIR__ . '/src/Middleware/AuthMiddleware.php';
+require_once __DIR__ . '/src/Controllers/BaseController.php';
+require_once __DIR__ . '/src/Controllers/AuthController.php';
+require_once __DIR__ . '/src/Controllers/BookController.php';
+require_once __DIR__ . '/src/Controllers/CategoryController.php';
+require_once __DIR__ . '/src/Controllers/GeneralController.php';
+require_once __DIR__ . '/src/Controllers/MemberController.php';
+require_once __DIR__ . '/src/Controllers/SettingController.php';
+require_once __DIR__ . '/src/Controllers/UserController.php';
+require_once __DIR__ . '/src/Controllers/LoanController.php';
+require_once __DIR__ . '/src/Controllers/ReportController.php';
 
 App\Support\Env::load(__DIR__ . '/.env');
 
