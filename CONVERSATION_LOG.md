@@ -1869,3 +1869,115 @@ Hasil:
 - `frontend/kepala-perpustakaan/semua-dashboard.js` mengubah breadcrumb detail data menjadi link navigasi yang benar ke `dashboard.html`
 - `frontend/shared/styles.css` menambahkan style kecil untuk link breadcrumb agar tetap rapi dan dapat diklik
 - pengecekan sintaks `node --check` lolos untuk `frontend/kepala-perpustakaan/koleksi.js` dan `frontend/kepala-perpustakaan/semua-dashboard.js`
+
+## 130) Prompt seratus tiga puluh: instalasi skill optimasi dan pembersihan awal
+
+User meminta:
+
+- menginstal beberapa skill baru yang berguna untuk optimasi proyek (arsitektur, clean-code, pembersihan file, dan dokumentasi) secara bertahap.
+- memberikan petunjuk agar pengguna bisa melakukan optimasi proyek dengan optimal.
+
+Hasil:
+
+- Menginstal skill `improve-codebase-architecture` secara lokal di `.agents/skills/improve-codebase-architecture`
+- Menginstal skill `clean-code` secara lokal di `.agents/skills/clean-code`
+- Menginstal skill `impeccable` secara lokal di `.agents/skills/impeccable`
+- Menginstal skill `grill-with-docs` secara lokal di `.agents/skills/grill-with-docs`
+- Memeriksa file sampah dan menghapus file `temp_write_test.txt` yang tidak lagi digunakan di root direktori
+- Memverifikasi referensi `gambar login.jpg` dan memastikan file tersebut tetap dipertahankan karena aktif digunakan di halaman login
+
+## 131) Prompt seratus tiga puluh satu: menjalankan analisis arsitektur visual
+
+User meminta:
+
+- Menjalankan Langkah 1 untuk memindai proyek dan membuat Laporan Visual Arsitektur HTML.
+
+Hasil:
+
+- Melakukan analisis arsitektur pada folder `backend/` dan `frontend/`.
+- Mengidentifikasi tiga kandidat perbaikan arsitektur utama:
+  1. Memecah file rute monolitik `backend/routes/api.php` (3300+ baris) ke Controller domain khusus (misalnya `BookController`, `LoanController`).
+  2. Pendalaman modul komponen UI bersama (`frontend/shared/components.js`) dengan memisahkan pagination hardcoded dan parameter aksi dinamis.
+  3. Mengeliminasi file duplikat pasif `frontend/admin/buku-db.js` agar struktur halaman admin lebih teratur dan navigasi AI optimal.
+- Menulis laporan arsitektur visual HTML ke `%TEMP%/architecture-review-20260729223500.html` dan membukanya secara otomatis di browser.
+
+## 132) Prompt seratus tiga puluh dua: memecah rute monolitik dan restrukturisasi controller
+
+User meminta:
+
+- Melanjutkan rencana pemecahan rute monolitik `backend/routes/api.php` ke Controller modular.
+
+Hasil:
+
+- Membuat controller baru `backend/src/Controllers/LoanController.php` untuk menangani logika sirkulasi/peminjaman buku.
+- Membuat controller baru `backend/src/Controllers/ReportController.php` untuk menangani logika ringkasan laporan dan tren analitik.
+- Memperbarui `backend/bootstrap.php` untuk memuat semua controller secara otomatis.
+- Menyederhanakan file `backend/routes/api.php` dari 3300+ baris kode penanganan rute monolitik menjadi rute delegasi controller yang modular (kurang dari 60 baris).
+- Melakukan verifikasi sintaksis dan pengujian endpoint API (`/api/health`, `/api/db/ping`, `/api`) untuk memastikan backend tetap berjalan normal dan responsif.
+
+## 133) Prompt seratus tiga puluh tiga: konsolidasi file duplikat pasif dan integrasi komponen shared
+
+User meminta:
+
+- Melanjutkan pengerjaan proyek ("lanjut"), khususnya menangani temuan Kandidat 2 dan Kandidat 3 dari Laporan Visual Arsitektur (konsolidasi file duplikat pasif dan integrasi modul pagination/table bersama).
+
+Hasil:
+
+- Melakukan konsolidasi file frontend admin dengan menghapus duplikasi dan menyatukan view-controller.
+- Mengganti `frontend/admin/anggota-view.js` dengan `frontend/admin/anggota.js`, lalu menggunakan shared `dataTable` dan `renderPagination` dari `components.js`.
+- Memperbaiki bug `buildPagination` yang tidak terdefinisi di `frontend/admin/buku-view.js` dengan menggunakan shared `renderPagination`. Mengonsolidasikan file ini menjadi `frontend/admin/buku.js` dan menghapus `buku-view.js` serta `buku-db.js`.
+- Mengonsolidasikan `frontend/admin/sirkulasi-view.js` menjadi `frontend/admin/sirkulasi.js` dengan memetakan datanya ke shared `dataTable` dan menggunakan `renderPagination` dari `components.js`.
+- Memperbarui file `frontend/shared/entry.js` untuk merujuk modul yang telah dikonsolidasikan dengan cache-buster terbaru.
+- Menghapus file view lama yang sudah tidak digunakan (`anggota-view.js`, `buku-view.js`, `buku-db.js`, `sirkulasi-view.js`) untuk menjaga kebersihan repositori.
+- Melakukan verifikasi sintaksis dengan `node --check` dan memastikan seluruh file JavaScript berjalan tanpa error parsing.
+
+## 134) Prompt seratus tiga puluh empat: perbaikan import status di buku.js
+
+User meminta:
+
+- Memperbaiki error runtime `Uncaught (in promise) TypeError: status is not a function` yang terjadi pada halaman `buku.js`.
+
+Hasil:
+
+- Menambahkan fungsi `status` ke dalam daftar import dari `components.js` di dalam file `frontend/admin/buku.js`.
+- Error runtime berhasil teratasi sehingga tabel buku dapat dirender kembali dengan normal.
+
+## 135) Prompt seratus tiga puluh lima: integrasi komponen shared di kepala perpustakaan
+
+User meminta:
+
+- Menyelesaikan integrasi komponen shared (`dataTable` dan `renderPagination`) pada halaman Kepala Perpustakaan (`pengguna.js`, `koleksi.js`, `rekomendasi.js`, dan `semua-dashboard.js`) untuk membuang duplikasi kode.
+
+Hasil:
+
+- Refaktor `frontend/kepala-perpustakaan/pengguna.js` untuk menggunakan `dataTable` dan `renderPagination` dari komponen bersama `components.js`.
+- Refaktor `frontend/kepala-perpustakaan/koleksi.js` untuk menggunakan `renderPagination` dari komponen bersama `components.js`.
+- Refaktor `frontend/kepala-perpustakaan/rekomendasi.js` untuk menggunakan `renderPagination` dari komponen bersama `components.js`.
+- Refaktor `frontend/kepala-perpustakaan/semua-dashboard.js` untuk menggunakan `renderPagination` dari komponen bersama `components.js`.
+- Memperbarui `frontend/shared/entry.js` dengan menyertakan cache-buster query string (`?v=20260730`) ke rute modul yang telah dimodifikasi.
+- Memverifikasi fungsionalitas parsing JS dengan `node --check` dan memastikan semua berkas bebas dari kesalahan sintaks.
+
+## 136) Prompt seratus tiga puluh enam: pembuatan dokumentasi proyek (langkah 4)
+
+User meminta:
+
+- Melanjutkan ke langkah optimasi berikutnya (Langkah 4: Dokumentasi Akhir).
+
+Hasil:
+
+- Membuat berkas `CONTEXT.md` baru di root direktori yang mendefinisikan glosarium istilah domain (*ubiquitous language*) dan pedoman clean architecture proyek.
+- Membuat berkas `README.md` baru di root direktori yang merinci stack teknologi, peta struktur folder proyek, standar clean code, serta panduan instalasi dan menjalankan proyek secara lokal.
+
+## 137) Prompt seratus tiga puluh tujuh: penghapusan folder arsip usang (archive)
+
+User meminta:
+
+- Menghapus folder `archive/` yang berisi berkas-berkas PHP lama pra-migrasi agar direktori proyek menjadi lebih bersih.
+
+Hasil:
+
+- Menghapus folder `archive/` beserta seluruh 25 berkas PHP cadangan di dalamnya secara permanen.
+
+
+
+

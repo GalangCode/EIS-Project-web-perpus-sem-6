@@ -2,7 +2,7 @@
 
 Tanggal catatan: 2026-07-29
 
-Pembaruan terakhir: 2026-07-29 20:08:09
+Pembaruan terakhir: 2026-07-30 13:38:00
 
 ## Tujuan saat ini
 
@@ -1608,14 +1608,77 @@ Catatan:
 - refactor ini menjaga perilaku collapse yang sudah ada sambil mengurangi duplikasi antara dua role
 - jika nanti ada perubahan pada tampilan sidebar, cukup sentuh helper shared agar admin dan kepala tetap sinkron
 
+## Instalasi Skill Optimasi dan Pembersihan Awal
+
+- **Status**: Selesai, semua skill utama untuk optimasi arsitektur, clean-code, pembersihan file, dan dokumentasi telah diinstal secara lokal. File sampah uji telah dibersihkan.
+- **Perubahan**:
+  - Menginstal skill `improve-codebase-architecture` ke `.agents/skills/improve-codebase-architecture`.
+  - Menginstal skill `clean-code` ke `.agents/skills/clean-code`.
+  - Menginstal skill `impeccable` ke `.agents/skills/impeccable`.
+  - Menginstal skill `grill-with-docs` ke `.agents/skills/grill-with-docs`.
+  - Menghapus file `temp_write_test.txt` di root direktori.
+  - Memverifikasi referensi `gambar login.jpg` dan memastikannya aktif digunakan di `frontend/shared/components.js`.
+- **Catatan**:
+  - Langkah selanjutnya adalah menjalankan analisis arsitektur folder menggunakan skill `improve-codebase-architecture` untuk memetakan struktur file secara visual.
+
+## Analisis Arsitektur Visual Selesai
+
+- **Status**: Selesai, Laporan Visual Arsitektur telah berhasil digenerasikan dan dibuka.
+- **Perubahan**:
+  - Memindai arsitektur folder `backend/` dan `frontend/`.
+  - Membuat laporan HTML interaktif di `%TEMP%/architecture-review-20260729223500.html` menggunakan visualisasi Mermaid.
+  - Mengidentifikasi 3 kandidat refaktorisasi utama: pemisahan rute monolitik `api.php`, pendalaman komponen UI `components.js`, dan pembersihan duplikasi file `buku-db.js`.
+- **Catatan**:
+  - Laporan arsitektur dibuka secara otomatis di browser pengguna. Keputusan berikutnya bergantung pada kandidat mana yang akan dipilih pengguna untuk dieksplorasi lebih lanjut.
+
+## Pemecahan Rute Monolitik (backend/routes/api.php)
+
+- **Status**: Selesai, rute monolitik telah berhasil dipecah ke Controller modular khusus.
+- **Perubahan**:
+  - Membuat `backend/src/Controllers/LoanController.php` untuk menangani logika sirkulasi (peminjaman, pengembalian, pembaruan, dan pembatalan sirkulasi).
+  - Membuat `backend/src/Controllers/ReportController.php` untuk menangani logika pelaporan ringkasan and tren analitik.
+  - Memasukkan pemanggilan controller baru di `backend/bootstrap.php`.
+  - Mengganti seluruh fungsi inline closures di `backend/routes/api.php` menjadi rute delegasi controller yang bersih dan modular.
+  - Melakukan verifikasi sintaksis dan pengujian endpoint API (`/api/health`, `/api/db/ping`, `/api`) untuk memastikan fungsionalitas backend berjalan normal.
+- **Catatan**:
+  - Struktur routing backend sekarang menjadi sangat bersih, hanya memetakan URL endpoint ke method class Controller terkait.
+
+## Perbaikan Import Status di buku.js
+
+- **Status**: Selesai, halaman buku tidak lagi memicu error `TypeError: status is not a function`.
+- **Perubahan**:
+  - Mengimpor fungsi `status` dari `components.js` ke dalam `frontend/admin/buku.js`.
+- **Catatan**:
+  - Perbaikan ini memulihkan render normal tabel data buku di halaman admin.
+
+## Integrasi Komponen Shared di Kepala Perpustakaan
+
+- **Status**: Selesai, halaman Kepala Perpustakaan telah diintegrasikan dengan komponen visual bersama.
+- **Perubahan**:
+  - Refaktor `frontend/kepala-perpustakaan/pengguna.js` untuk menggunakan `dataTable` dan `renderPagination`.
+  - Refaktor `frontend/kepala-perpustakaan/koleksi.js`, `rekomendasi.js`, dan `semua-dashboard.js` untuk menggunakan `renderPagination`.
+  - Memperbarui `frontend/shared/entry.js` dengan menyertakan cache-buster query string (`?v=20260730`) ke rute modul Kepala Perpustakaan yang dimodifikasi.
+- **Catatan**:
+  - Integrasi ini menyelesaikan sasaran arsitektur Kandidat 2 sepenuhnya.
+
+## Pembuatan Dokumentasi Proyek (Langkah 4)
+
+- **Status**: Selesai, berkas `CONTEXT.md` dan `README.md` telah dibuat untuk mendokumentasikan proyek secara menyeluruh.
+- **Perubahan**:
+  - Membuat berkas [CONTEXT.md](file:///C:/xampp/htdocs/eis-optimized/CONTEXT.md) yang menetapkan glosarium domain (seperti Buku, Kategori, Anggota, Sirkulasi, Laporan/Analitik, Pengguna) dan pedoman clean architecture.
+  - Membuat berkas [README.md](file:///C:/xampp/htdocs/eis-optimized/README.md) sebagai panduan proyek utama, peta direktori, standar arsitektur bersih, dan cara menjalankan proyek secara lokal.
+- **Catatan**:
+  - Dokumentasi ini membantu navigasi AI dan pengembang baru di masa mendatang agar kepatuhan arsitektur tetap terjaga.
+
+## Penghapusan Folder Arsip Usang (archive)
+
+- **Status**: Selesai, folder `archive/` beserta seluruh isinya telah dihapus secara permanen untuk membersihkan workspace.
+- **Perubahan**:
+  - Menghapus folder `archive/` yang berisi berkas-berkas PHP cadangan pra-migrasi.
+- **Catatan**:
+  - Penghapusan ini mengeliminasi file-file tidak aktif di repositori dan menyisakan hanya file yang aktif digunakan oleh aplikasi.
+
 ## File penting yang terakhir berubah
 
-- `frontend/shared/sidebar-admin.js`
-- `frontend/shared/sidebar-kepala.js`
-- `frontend/shared/sidebar-shell.js`
-- `frontend/shared/styles.css`
-- `frontend/shared/entry.js`
-- `frontend/kepala-perpustakaan/koleksi.js`
-- `frontend/kepala-perpustakaan/semua-dashboard.js`
 - `CONVERSATION_LOG.md`
 - `HANDOFF_NOTES.md`
